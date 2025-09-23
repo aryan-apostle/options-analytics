@@ -13,29 +13,35 @@ st.title("ACCF Options")
 st.sidebar.header("Parameter Details")
 if 'spot' not in st.session_state:
     st.session_state.spot = 100.0
-spot = st.sidebar.number_input("Spot", key='spot', value=st.session_state.spot, step=0.1, format="%.2f")
+spot = st.sidebar.number_input("Spot", value=st.session_state.spot, step=0.1, format="%.2f")
+st.session_state.spot = spot
 
 if 'r' not in st.session_state:
     st.session_state.r = 0.0191
-r = st.sidebar.number_input("Rate", key='r', value=st.session_state.r, step=0.001, format="%.4f")
+r = st.sidebar.number_input("Rate", value=st.session_state.r, step=0.001, format="%.4f")
+st.session_state.r = r
 
 if 'fx_rate' not in st.session_state:
     st.session_state.fx_rate = 0.56
-fx_rate = st.sidebar.number_input("FX to AUD", key='fx_rate', value=st.session_state.fx_rate, step=0.01, format="%.4f")
+fx_rate = st.sidebar.number_input("FX to AUD", value=st.session_state.fx_rate, step=0.01, format="%.4f")
+st.session_state.fx_rate = fx_rate
 
 if 'fund_nav' not in st.session_state:
     st.session_state.fund_nav = 28560000.0
-fund_nav = st.sidebar.number_input("Fund NAV (base currency)", key='fund_nav', value=st.session_state.fund_nav, step=100000.0, format="%.2f")
+fund_nav = st.sidebar.number_input("Fund NAV (base currency)", value=st.session_state.fund_nav, step=100000.0, format="%.2f")
+st.session_state.fund_nav = fund_nav
 
 st.sidebar.markdown("---")
 st.sidebar.header("Time Details")
 if 'current_days' not in st.session_state:
     st.session_state.current_days = 180
-current_days = st.sidebar.number_input("Days to expiry", key='current_days', min_value=0, max_value=3650, value=st.session_state.current_days)
+current_days = st.sidebar.number_input("Days to expiry", min_value=0, max_value=3650, value=st.session_state.current_days)
+st.session_state.current_days = current_days
 
 if 'close_days' not in st.session_state:
     st.session_state.close_days = int(current_days // 4)
-close_days = st.sidebar.number_input("Days until close", key='close_days', min_value=0, max_value=int(current_days), value=st.session_state.close_days)
+close_days = st.sidebar.number_input("Days until close", min_value=0, max_value=int(current_days), value=st.session_state.close_days)
+st.session_state.close_days = close_days
 
 T_today = current_days / 365.0
 T_close = close_days / 365.0
@@ -44,7 +50,7 @@ st.sidebar.markdown("---")
 st.sidebar.header("Option Details")
 if 'num_legs' not in st.session_state:
     st.session_state.num_legs = 4
-num_legs = st.sidebar.number_input("Number of legs", key='num_legs', min_value=1, max_value=8, value=st.session_state.num_legs, step=1)
+num_legs = st.sidebar.number_input("Number of legs", min_value=1, max_value=8, value=st.session_state.num_legs, step=1)
 st.session_state.num_legs = num_legs
 
 
@@ -103,7 +109,7 @@ st.session_state.legs = legs
 # ---------------------- Option Legs Table ----------------------
 st.subheader("Option Legs Summary")
 legs_df = pd.DataFrame([{
-    'Type': l['type'], 'Side': l['side'], 'Strike': l['K'], 'Vol': l['vol'],
+    'Type': l['type'], 'Side': l['side'], 'Strike': l['K'], 'Vol': l['vol'], 
     'Price': l['entry'], 'Qty': l['qty'], 'Lot Size': l['size']
 } for l in legs])
 st.dataframe(legs_df)
