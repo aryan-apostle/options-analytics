@@ -187,26 +187,26 @@ st.plotly_chart(fig_time, use_container_width=True)
 
 
 # ---------------------- Weighted Return Surface ----------------------
-st.subheader("Weighted Return Surface")
-n_days, n_spots = len(days_forward), len(S_range)
-wr_grid = np.zeros((n_days, n_spots), dtype=float)
+# st.subheader("Weighted Return Surface")
+# n_days, n_spots = len(days_forward), len(S_range)
+# wr_grid = np.zeros((n_days, n_spots), dtype=float)
 
-for i, T in enumerate(T_grid):
-    wr_day_total = np.zeros(n_spots)
-    for leg in legs:
-        prices_day = bs_price_vectorized(S_range, leg['K'], T, r, leg['vol'], leg['type'])
-        wr_day_total += weighted_return_percent(prices_day, leg['entry'], leg['mult'], fx_rate, fund_nav, leg['sign'])
-    wr_grid[i,:] = wr_day_total
+# for i, T in enumerate(T_grid):
+#     wr_day_total = np.zeros(n_spots)
+#     for leg in legs:
+#         prices_day = bs_price_vectorized(S_range, leg['K'], T, r, leg['vol'], leg['type'])
+#         wr_day_total += weighted_return_percent(prices_day, leg['entry'], leg['mult'], fx_rate, fund_nav, leg['sign'])
+#     wr_grid[i,:] = wr_day_total
 
-fig_3d = go.Figure()
-fig_3d.add_trace(go.Surface(x=days_forward, y=S_range, z=wr_grid.T,
-                            hovertemplate='Day %{x}<br>Spot %{y:.2f}<br>Weighted return: %{z:.6f}%<extra></extra>',
-                            showscale=False, colorscale='Viridis', cmin=-5, cmax=5))
-if 0 <= close_days <= current_days:
-    close_idx = int(np.argmin(np.abs(days_forward - close_days)))
-    fig_3d.add_trace(go.Scatter3d(x=[close_days]*n_spots, y=S_range, z=wr_grid[close_idx,:], mode='lines',
-                                  line=dict(color='blue', width=2, dash='dash'),
-                                  name=f'Close in {close_days}d'))
+# fig_3d = go.Figure()
+# fig_3d.add_trace(go.Surface(x=days_forward, y=S_range, z=wr_grid.T,
+#                             hovertemplate='Day %{x}<br>Spot %{y:.2f}<br>Weighted return: %{z:.6f}%<extra></extra>',
+#                             showscale=False, colorscale='Viridis', cmin=-5, cmax=5))
+# if 0 <= close_days <= current_days:
+#     close_idx = int(np.argmin(np.abs(days_forward - close_days)))
+#     fig_3d.add_trace(go.Scatter3d(x=[close_days]*n_spots, y=S_range, z=wr_grid[close_idx,:], mode='lines',
+#                                   line=dict(color='blue', width=2, dash='dash'),
+#                                   name=f'Close in {close_days}d'))
 
-fig_3d.update_layout(scene=dict(xaxis_title='Days', yaxis_title='Spot', zaxis_title='Weighted return (% of NAV)'), height=700)
-st.plotly_chart(fig_3d, use_container_width=True)
+# fig_3d.update_layout(scene=dict(xaxis_title='Days', yaxis_title='Spot', zaxis_title='Weighted return (% of NAV)'), height=700)
+# st.plotly_chart(fig_3d, use_container_width=True)
