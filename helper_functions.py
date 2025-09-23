@@ -58,13 +58,18 @@ def bs_greeks(S, K, T, r, sigma, option_type='Call'):
     cdf_d2 = norm.cdf(d2)
 
     delta = cdf_d1 if option_type == 'Call' else cdf_d1 - 1.0
+    
     gamma = pdf_d1 / (S * sigma * sqrt(T))
+    
     vega = S * pdf_d1 * sqrt(T)
+    
     term1 = - (S * pdf_d1 * sigma) / (2 * sqrt(T))
+    
     if option_type == 'Call':
         theta = term1 - r * K * exp(-r * T) * cdf_d2
     else:
         theta = term1 + r * K * exp(-r * T) * (1 - cdf_d2)
+    
     rho = K * T * exp(-r * T) * cdf_d2 if option_type == 'Call' else -K * T * exp(-r * T) * (1 - cdf_d2)
 
     return {'delta': float(delta), 'gamma': float(gamma), 'vega': float(vega), 'theta': float(theta), 'rho': float(rho)}

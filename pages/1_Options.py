@@ -63,16 +63,38 @@ legs = []
 for i in range(int(num_legs)):
     default_offset = (i - (num_legs-1)/2) * 5.0
     with st.sidebar.expander(f"Leg {i+1}"):
-        l_type = st.selectbox(f"Type {i+1}", ['Call','Put'], index=0, key=f'type_{i}')
-        l_side = st.selectbox(f"Side {i+1}", ['Long','Short'], index=1 if i%2==0 else 0, key=f'side_{i}')
-        l_strike = st.number_input(f"Strike {i+1}", value=float(100.0 + default_offset), key=f'strike_{i}', format="%.2f")
-        l_vol = st.number_input(f"Vol (σ) {i+1}", min_value=0.0001, max_value=5.0, value=0.25, step=0.01, format="%.4f", key=f'vol_{i}')
-        l_entry = st.number_input(f"Entry premium {i+1}", value=1.0 + abs(default_offset)/10.0, format="%.4f", key=f'entry_{i}')
-        l_qty = st.number_input(f"Quantity (contracts) {i+1}", min_value=1, value=25, step=1, key=f'qty_{i}')
-        l_size = st.number_input(f"Lot size (per contract) {i+1}", min_value=1, value=1000, step=1, key=f'size_{i}')
+        prev_type = st.session_state.get(f'type_{i}', None)
+        type_index = 0 if prev_type is None else (0 if prev_type == 'Call' else 1)
+        l_type = st.selectbox(f"Type {i+1}", ['Call','Put'], index=type_index, key=f'type_{i}')
+
+        default_side = 'Short' if i%2==0 else 'Long'
+        prev_side = st.session_state.get(f'side_{i}', None)
+        side_index = 0 if (prev_side is None and default_side == 'Long') or prev_side == 'Long' else 1
+        l_side = st.selectbox(f"Side {i+1}", ['Long','Short'], index=side_index, key=f'side_{i}')
+
+        strike_default = float(100.0 + default_offset)
+        strike_val = st.session_state.get(f'strike_{i}', strike_default)
+        l_strike = st.number_input(f"Strike {i+1}", value=float(strike_val), key=f'strike_{i}', format="%.2f")
+
+        vol_default = 0.25
+        vol_val = st.session_state.get(f'vol_{i}', vol_default)
+        l_vol = st.number_input(f"Vol (σ) {i+1}", min_value=0.0001, max_value=5.0, value=float(vol_val), step=0.01, format="%.4f", key=f'vol_{i}')
+
+        entry_default = 1.0 + abs(default_offset)/10.0
+        entry_val = st.session_state.get(f'entry_{i}', entry_default)
+        l_entry = st.number_input(f"Entry premium {i+1}", value=float(entry_val), format="%.4f", key=f'entry_{i}')
+
+        qty_default = 25
+        qty_val = st.session_state.get(f'qty_{i}', qty_default)
+        l_qty = st.number_input(f"Quantity (contracts) {i+1}", min_value=1, value=int(qty_val), step=1, key=f'qty_{i}')
+
+        size_default = 1000
+        size_val = st.session_state.get(f'size_{i}', size_default)
+        l_size = st.number_input(f"Lot size (per contract) {i+1}", min_value=1, value=int(size_val), step=1, key=f'size_{i}')
+
         legs.append({
-            'type': l_type, 'side': l_side, 'K': float(l_strike), 
-            'vol': float(l_vol), 'entry': float(l_entry), 
+            'type': l_type, 'side': l_side, 'K': float(l_strike),
+            'vol': float(l_vol), 'entry': float(l_entry),
             'qty': int(l_qty), 'size': int(l_size)
         })
 
