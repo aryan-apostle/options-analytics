@@ -83,11 +83,11 @@ for i in range(int(num_legs)):
     with st.sidebar.expander(f"Leg {i+1}"):
         l_type = st.selectbox(f"Type {i+1}", ['Call','Put'], key=f'options_type_{i}')
         l_side = st.selectbox(f"Side {i+1}", ['Long','Short'], key=f'options_side_{i}')
-        l_strike = st.number_input(f"Strike {i+1}", value=st.session_state[f'options_strike_{i}'], key=f'options_strike_{i}', format="%.2f")
-        l_vol = st.number_input(f"Vol (σ) {i+1}", min_value=0.0001, max_value=5.0, value=st.session_state[f'options_vol_{i}'], step=0.01, format="%.4f", key=f'options_vol_{i}')
-        l_entry = st.number_input(f"Entry premium {i+1}", value=st.session_state[f'options_entry_{i}'], format="%.4f", key=f'options_entry_{i}')
-        l_qty = st.number_input(f"Quantity (contracts) {i+1}", min_value=1, value=st.session_state[f'options_qty_{i}'], step=1, key=f'options_qty_{i}')
-        l_size = st.number_input(f"Lot size (per contract) {i+1}", min_value=1, value=st.session_state[f'options_size_{i}'], step=1, key=f'options_size_{i}')
+        l_strike = st.number_input(f"Strike {i+1}", key=f'options_strike_{i}', format="%.2f")
+        l_vol = st.number_input(f"Vol (σ) {i+1}", min_value=0.0001, max_value=5.0, key=f'options_vol_{i}', step=0.01, format="%.4f")
+        l_entry = st.number_input(f"Entry premium {i+1}", key=f'options_entry_{i}', format="%.4f")
+        l_qty = st.number_input(f"Quantity (contracts) {i+1}", min_value=1, key=f'options_qty_{i}', step=1)
+        l_size = st.number_input(f"Lot size (per contract) {i+1}", min_value=1, key=f'options_size_{i}', step=1)
         legs.append({
             'type': l_type, 'side': l_side, 'K': float(l_strike),
             'vol': float(l_vol), 'entry': float(l_entry),
