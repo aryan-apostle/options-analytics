@@ -4,7 +4,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from functools import lru_cache
 from math import exp, log, sqrt
+from scipy.optimize import brentq, minimize_scalar
 from scipy.stats import norm
 
 
@@ -86,16 +88,115 @@ def weighted_return_percent(prices, entry, mult, fx_rate, fund_nav, sign=1.0):
     return weighted * 100.0
 
 
-def find_zero_crossings(x_arr, y_arr):
+def find_zero_crossings(x_arr, y_arr, func_exact=None,
+                                brent_xtol=1e-10, brent_rtol=1e-12, brent_maxiter=200,
+                                min_search_tol=1e-10, min_search_maxiter=100):
+    """
+    Improved root finder:
+      - x_arr, y_arr : the sampled grid and corresponding y-values (like you already compute)
+      - func_exact (callable) : optional exact function f(S) returning weighted-return (float). 
+        If None, the function will read from st.session_state using the same logic you already used.
+      - Returns list of root x locations (floats)
+    """
+    # Build exact function if not provided (keeps previous behaviour)
+    if func_exact is None:
+        def func_exact_local(S_val):
+            try:
+                legs = st.session_state.get('legs', [])
+                r = float(st.session_state.get('r', 0.0))
+                fx_rate = float(st.session_state.get('fx_rate', 0.0))
+                fund_nav = float(st.session_state.get('fund_nav', 28560000.0))
+                current_days = int(st.session_state.get('current_days', 0))
+                close_days = int(st.session_state.get('close_days', 0))
+                total = 0.0
+                for leg in legs:
+                    days_leg = int(leg.get('days', current_days))
+                    T_close_leg = max(0.0, (days_leg - int(close_days)) / 365.0)
+                    price_close = bs_price(S_val, leg['K'], T_close_leg, r, leg['vol'], leg['type'])
+                    wr = weighted_return_percent(np.array([price_close]), leg['entry'],
+                                                 leg.get('mult', leg.get('qty',0)*leg.get('size',0)),
+                                                 fx_rate, fund_nav, leg.get('sign',1.0))[0]
+                    total += float(wr)
+                return total
+            except Exception:
+                return float('nan')
+        func_exact = func_exact_local
+
+    # caching wrapper to avoid recomputing same S many times in brentq
+    @lru_cache(maxsize=8192)
+    def f_cached(S_rounded):
+        return float(func_exact(float(S_rounded)))
+
+    def f(S):
+        # quantize S before cache-key so floating differences map to same cached bucket
+        key = round(float(S), 12)
+        return f_cached(key)
+
     zeros = []
-    for i in range(len(y_arr)-1):
-        y1 = y_arr[i]; y2 = y_arr[i+1]
+    n = len(x_arr)
+
+    # quick pass: direct zeros or near-zeros on grid
+    for i in range(n):
+        yi = y_arr[i]
+        if np.isnan(yi):
+            continue
+        if abs(yi) < 1e-14:   # exact (or numerically tiny) on the sampled grid
+            zeros.append(float(x_arr[i]))
+
+    # find sign-change brackets and refine with brentq
+    for i in range(n-1):
+        a, b = float(x_arr[i]), float(x_arr[i+1])
+        y1, y2 = y_arr[i], y_arr[i+1]
         if np.isnan(y1) or np.isnan(y2):
             continue
-        if y1 == 0.0:
-            zeros.append(x_arr[i])
-        elif y1 * y2 < 0:
-            x1 = x_arr[i]; x2 = x_arr[i+1]
-            x_zero = x1 - y1 * (x2 - x1) / (y2 - y1)
-            zeros.append(x_zero)
-    return zeros
+
+        # If sign change on the sampled y-array, attempt brentq on the exact function
+        if y1 * y2 < 0:
+            try:
+                # ensure endpoints bracket with the exact function
+                fa, fb = f(a), f(b)
+                if np.isnan(fa) or np.isnan(fb) or fa * fb > 0:
+                    # if exact doesn't bracket, fall back to linear interpolation root on grid
+                    root_lin = a - y1 * (b - a) / (y2 - y1)
+                    zeros.append(root_lin)
+                    continue
+
+                root = brentq(lambda S: f(S), a, b, xtol=brent_xtol, rtol=brent_rtol, maxiter=brent_maxiter)
+                zeros.append(float(root))
+            except Exception:
+                # robust fallback: linear interp
+                try:
+                    root_lin = a - y1 * (b - a) / (y2 - y1)
+                    zeros.append(root_lin)
+                except Exception:
+                    pass
+            continue
+
+        # No sign change but the grid value is very small in magnitude -> consider it a root
+        if abs(y1) < 1e-8:
+            zeros.append(a)
+            continue
+        if abs(y2) < 1e-8:
+            zeros.append(b)
+            continue
+
+        # Detect potential tangent/root-touch where function may dip to zero without sign change.
+        # Use minimize_scalar on |f| over [a,b] as a fallback when the sampled y is small-ish.
+        if min(abs(y1), abs(y2)) < 1e-2:  # heuristic threshold; adjust if you want more/less aggressive detection
+            try:
+                res = minimize_scalar(lambda S: abs(f(S)), bounds=(a, b), method='bounded', options={'xatol': min_search_tol, 'maxiter': min_search_maxiter})
+                if res.success and abs(res.fun) < 1e-10:
+                    zeros.append(float(res.x))
+            except Exception:
+                pass
+
+    # dedupe & sort results (within tolerance)
+    zeros_sorted = sorted(zeros)
+    final = []
+    for z in zeros_sorted:
+        if not final:
+            final.append(z)
+        else:
+            if abs(z - final[-1]) > 1e-9:   # distinct roots
+                final.append(z)
+    return final
