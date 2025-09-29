@@ -89,17 +89,14 @@ def weighted_return_percent(prices, entry, mult, fx_rate, fund_nav, sign=1.0):
     return weighted * 100.0
 
 
+def surface_value_normalisation(v, vmin, vmax):
+    return float((v - vmin) / (vmax - vmin))
+
+
 def find_zero_crossings(x_arr, y_arr, func_exact=None,
                                 brent_xtol=1e-10, brent_rtol=1e-12, brent_maxiter=200,
                                 min_search_tol=1e-10, min_search_maxiter=100):
-    """
-    Improved root finder:
-      - x_arr, y_arr : the sampled grid and corresponding y-values (like you already compute)
-      - func_exact (callable) : optional exact function f(S) returning weighted-return (float). 
-        If None, the function will read from st.session_state using the same logic you already used.
-      - Returns list of root x locations (floats)
-    """
-    # Build exact function if not provided (keeps previous behaviour)
+
     if func_exact is None:
         def func_exact_local(S_val):
             try:
@@ -136,7 +133,6 @@ def find_zero_crossings(x_arr, y_arr, func_exact=None,
     zeros = []
     n = len(x_arr)
 
-    # quick pass: direct zeros or near-zeros on grid
     for i in range(n):
         yi = y_arr[i]
         if np.isnan(yi):
@@ -165,7 +161,7 @@ def find_zero_crossings(x_arr, y_arr, func_exact=None,
                 root = brentq(lambda S: f(S), a, b, xtol=brent_xtol, rtol=brent_rtol, maxiter=brent_maxiter)
                 zeros.append(float(root))
             except Exception:
-                # robust fallback: linear interp
+                # fallback: linear interp
                 try:
                     root_lin = a - y1 * (b - a) / (y2 - y1)
                     zeros.append(root_lin)
@@ -182,8 +178,7 @@ def find_zero_crossings(x_arr, y_arr, func_exact=None,
             continue
 
         # Detect potential tangent/root-touch where function may dip to zero without sign change.
-        # Use minimize_scalar on |f| over [a,b] as a fallback when the sampled y is small-ish.
-        if min(abs(y1), abs(y2)) < 1e-2:  # heuristic threshold; adjust if you want more/less aggressive detection
+        if min(abs(y1), abs(y2)) < 1e-2:  # heuristic threshold; adjust for more/less aggressive detection
             try:
                 res = minimize_scalar(lambda S: abs(f(S)), bounds=(a, b), method='bounded', options={'xatol': min_search_tol, 'maxiter': min_search_maxiter})
                 if res.success and abs(res.fun) < 1e-10:
@@ -191,7 +186,7 @@ def find_zero_crossings(x_arr, y_arr, func_exact=None,
             except Exception:
                 pass
 
-    # dedupe & sort results (within tolerance)
+    # dedupe & sort results
     zeros_sorted = sorted(zeros)
     final = []
     for z in zeros_sorted:

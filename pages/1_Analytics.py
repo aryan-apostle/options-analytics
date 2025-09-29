@@ -1,4 +1,4 @@
- # ---------------------- Modules ----------------------
+# ---------------------- Modules ----------------------
 from helper_functions import *
 
 
@@ -336,10 +336,66 @@ if st.session_state.get('show_surface', False):
             wr_day_total += weighted_return_percent(prices_day, leg['entry'], leg['mult'], fx_rate, fund_nav, leg['sign'])
         wr_grid[i,:] = wr_day_total
 
+    halfband = 0.0005
+    thr_neg = -halfband
+    thr_zero = 0.0
+    thr_pos = halfband
+
+    vmin = float(np.nanmin(wr_grid))
+    vmax = float(np.nanmax(wr_grid))
+    if vmin == vmax:
+        vmin -= 1e-6
+        vmax += 1e-6
+
+    if vmax <= 0.0:
+        colorscale = [
+            (0.0, '#8B0000'),
+            (0.25, '#ff6666'),
+            (0.5, '#ff9999'),
+            (0.75, '#ffcccc'),
+            (1.0, '#ffe6e6')
+        ]
+    elif vmin >= 0.0:
+        colorscale = [
+            (0.0, '#e6ffea'),
+            (0.25, '#b3ffcc'),
+            (0.5, '#80ffa6'),
+            (0.75, '#33cc33'),
+            (1.0, '#006400')
+        ]
+    else:
+        p_neg = min(max(surface_value_normalisation(thr_neg, vmin, vmax), 0.0), 1.0)
+        p_zero = min(max(surface_value_normalisation(thr_zero, vmin, vmax), 0.0), 1.0)
+        p_pos = min(max(surface_value_normalisation(thr_pos, vmin, vmax), 0.0), 1.0)
+
+        eps = 1e-4
+        p_before_neg = max(0.0, p_neg - eps)
+        p_after_neg = min(1.0, p_neg + eps)
+        p_before_pos = max(0.0, p_pos - eps)
+        p_after_pos = min(1.0, p_pos + eps)
+
+        colorscale = [
+            (0.0, '#8B0000'),              # deep negative
+            (p_before_neg, '#ff6666'),     # towards light pink before white
+            (p_neg, '#ffe6e6'),            # light pink at negative threshold
+            (p_after_neg, '#ffffff'),      # start white band
+            (p_before_pos, '#ffffff'),     # end white band
+            (p_pos, '#e6ffea'),            # light green at positive threshold
+            (p_after_pos, '#00b300'),      # green beyond threshold
+            (1.0, '#006400')               # deep positive
+        ]
+
     fig_3d = go.Figure()
-    fig_3d.add_trace(go.Surface(x=days_surface, y=S_range, z=wr_grid.T,
-                                hovertemplate='Day %{x}<br>Spot %{y:.2f}<br>Weighted return: %{z:.6f}%<extra></extra>',
-                                showscale=False, colorscale='Viridis', cmin=-5, cmax=5))
+    fig_3d.add_trace(go.Surface(
+        x=days_surface,
+        y=S_range,
+        z=wr_grid.T,
+        hovertemplate='Day %{x}<br>Spot %{y:.2f}<br>Weighted return: %{z:.6f}%<extra></extra>',
+        showscale=False,
+        colorscale=colorscale,
+        cmin=vmin,
+        cmax=vmax
+    ))
     if 0 <= st.session_state.close_days <= st.session_state.current_days:
         close_idx = int(np.argmin(np.abs(days_surface - st.session_state.close_days)))
         fig_3d.add_trace(go.Scatter3d(x=[st.session_state.close_days]*n_spots, y=S_range, z=wr_grid[close_idx,:], mode='lines',
@@ -370,6 +426,9 @@ if st.session_state.get('show_greeks', True):
 
     days_forward = np.arange(0, max_days_greeks)
 
+    today = pd.to_datetime('today').normalize()
+    dates_greeks = (today + pd.to_timedelta(days_forward, unit='D')).strftime('%Y-%m-%d')
+
     greeks_total = {
         'delta': np.zeros_like(days_forward, dtype=float),
         'gamma': np.zeros_like(days_forward, dtype=float),
@@ -394,12 +453,13 @@ if st.session_state.get('show_greeks', True):
         st.subheader(f"{k.capitalize()}")
         fig_greek = go.Figure()
         fig_greek.add_trace(go.Scatter(
-            x=days_forward,
+            x=days_forward,                
             y=greeks_total[k],
             mode='lines+markers',
             name=k.capitalize(),
             line=dict(color=colors[k]),
-            hovertemplate=f'Day {{x}}<br>{k.capitalize()}: {{y:.6f}}<extra></extra>'
+            customdata=dates_greeks,        
+            hovertemplate=f'Date %{{customdata}}<br>{k.capitalize()}: %{{y:.6f}}<extra></extra>',
         ))
         try:
             if 0 <= close_days < max_days_greeks:
@@ -412,13 +472,18 @@ if st.session_state.get('show_greeks', True):
                     span_k = max(0.0001, y_max_k - y_min_k)
                     y_min_k -= 0.05 * span_k
                     y_max_k += 0.05 * span_k
+
                 fig_greek.add_shape(
                     type='line',
                     x0=close_days, x1=close_days, y0=y_min_k, y1=y_max_k,
                     line=dict(color='black', dash='dash'),
                     xref='x', yref='y'
                 )
-                fig_greek.add_annotation(x=close_days, y=y_max_k, text=f'Close in {close_days}d', showarrow=False, yanchor='bottom')
+                fig_greek.add_annotation(
+                    x=close_days, y=y_max_k,
+                    text=f"Close in {close_days}d",
+                    showarrow=False, yanchor='bottom'
+                )
         except Exception:
             pass
 
