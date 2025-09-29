@@ -29,6 +29,7 @@ try:
         st.session_state.fx_rate = fx_from_file
         st.session_state.r = r_from_file
 except Exception:
+    st.write('File not being read in properly')
     pass
 
 if 'spot' not in st.session_state: 
