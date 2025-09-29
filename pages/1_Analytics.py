@@ -89,7 +89,7 @@ for i in range(MAX_LEGS):
     if f'options_size_{i}' not in st.session_state:
         st.session_state[f'options_size_{i}'] = 1000
     if f'options_days_{i}' not in st.session_state:
-        st.session_state[f'options_days_{i}'] = int(st.session_state.current_days)
+        st.session_state[f'options_days_{i}'] = 90
     if f'options_delta_{i}' not in st.session_state:
         st.session_state[f'options_delta_{i}'] = 0.5
 
@@ -106,8 +106,7 @@ for i in range(int(num_legs)):
 
         l_vol_val = float(st.session_state.get(f'options_vol_{i}', 0.25))
         l_entry_val = float(st.session_state.get(f'options_entry_{i}', 1.0))
-        l_days_val = int(st.session_state.get(f'options_days_{i}', st.session_state.current_days))
-        l_expiry_date = None
+        l_days_val = int(st.session_state.get(f'options_days_{i}', 90))
         l_delta_val = float(st.session_state.get(f'options_delta_{i}', 0.5))
 
         try:
@@ -136,10 +135,8 @@ for i in range(int(num_legs)):
                         l_vol_val = float(row['IVOL'])
                     if 'Opt Price' in row.index and pd.notna(row['Opt Price']):
                         l_entry_val = float(row['Opt Price'])
-                    if 'Expiry Date' in row.index and pd.notna(row['Expiry Date']):
-                        l_expiry_date = pd.to_datetime(row['Expiry Date'])
-                        today = pd.to_datetime('today').normalize()
-                        l_days_val = max(0, int((l_expiry_date.normalize() - today).days))
+                    if 'Days to Expiry' in row.index and pd.notna(row['Days to Expiry']):
+                        l_days_val = int(row['Days to Expiry'])
                     if 'Delta' in row.index and pd.notna(row['Delta']):
                         l_delta_val = float(row['Delta'])
                 else:
@@ -214,7 +211,7 @@ legs_df = pd.DataFrame([{
     'Price': l['entry'], 
     'Qty': l['qty'], 
     'Lot Size': l['size'], 
-    'Days to Expiry': l.get('days', st.session_state.current_days),
+    'Days to Expiry': l['days'],
     'Delta': l['delta'] 
 } for l in legs])
 st.dataframe(legs_df)
