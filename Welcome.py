@@ -2,6 +2,5 @@
 import streamlit as st
 
 
-
-# ---------------------- Landing Information ----------------------
+# ---------------------- Landing Page ----------------------
 st.title("ACCF Analytics")
