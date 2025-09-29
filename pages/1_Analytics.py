@@ -416,7 +416,7 @@ fig_time_current.add_trace(
         mode="lines+markers",
         name="Weighted return (%NAV)",
         customdata=dates_str,
-        hovertemplate="Date %{customdata}<br>Weighted return: %{y:.6f}%<extra></extra>",
+        hovertemplate="Date: %{customdata}<br>Weighted return: %{y:.6f}%<extra></extra>",
     )
 )
 if 0 <= st.session_state.close_days <= overall_max_days:
@@ -483,7 +483,7 @@ fig_time_expected.add_trace(
         mode="lines+markers",
         name="Weighted return (%NAV)",
         customdata=dates_str_e,
-        hovertemplate="Date %{customdata}<br>Weighted return: %{y:.6f}%<extra></extra>",
+        hovertemplate="Date: %{customdata}<br>Weighted return: %{y:.6f}%<extra></extra>",
     )
 )
 if 0 <= st.session_state.close_days <= overall_max_days:
@@ -695,7 +695,7 @@ if st.session_state.get("show_greeks", True):
                 name=k.capitalize(),
                 line=dict(color=colors[k]),
                 customdata=dates_greeks,
-                hovertemplate=f"Date %{{customdata}}<br>{k.capitalize()}: %{{y:.6f}}<extra></extra>",
+                hovertemplate=f"Date: %{{customdata}}<br>{k.capitalize()}: %{{y:.6f}}<extra></extra>",
             )
         )
 
