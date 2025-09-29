@@ -9,10 +9,43 @@ from math import exp, log, sqrt
 from pathlib import Path
 from scipy.optimize import brentq, minimize_scalar
 from scipy.stats import norm
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 
 # ---------------------- Helper Functions ----------------------
-def bs_d1_d2(S, K, T, r, sigma):
+def bs_d1_d2(
+    S: float, K: float, T: float, r: float, sigma: float
+) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Compute the Black-Scholes d1 and d2 terms.
+
+    Parameters
+    ----------
+    S : float
+        Spot price.
+    K : float
+        Strike price.
+    T : float
+        Time to expiry in years.
+    r : float
+        Continuously compounded risk-free rate.
+    sigma : float
+        Volatility (annualised).
+
+    Returns
+    -------
+    tuple
+        (d1, d2) as floats, or (None, None) if T <= 0 or sigma <= 0.
+    """
     if T <= 0 or sigma <= 0:
         return None, None
 
@@ -21,7 +54,41 @@ def bs_d1_d2(S, K, T, r, sigma):
     return d1, d2
 
 
-def bs_price(S, K, T, r, sigma, option_type="Call"):
+def bs_price(
+    S: float,
+    K: float,
+    T: float,
+    r: float,
+    sigma: float,
+    option_type: str = "Call",
+) -> float:
+    """
+    Black-Scholes option price (Call or Put).
+
+    Handles edge cases:
+      - If T <= 0, returns intrinsic value.
+      - If sigma <= 0, returns forward intrinsic (discounted cash) form.
+
+    Parameters
+    ----------
+    S : float
+        Spot price.
+    K : float
+        Strike price.
+    T : float
+        Time to expiry in years.
+    r : float
+        Continuously compounded risk-free rate.
+    sigma : float
+        Volatility (annualised).
+    option_type : str, optional
+        'Call' or 'Put' (default: 'Call').
+
+    Returns
+    -------
+    float
+        Option price.
+    """
     S = float(S)
     K = float(K)
 
@@ -43,14 +110,71 @@ def bs_price(S, K, T, r, sigma, option_type="Call"):
         return float(K * exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1))
 
 
-def bs_price_vectorized(S_array, K, T, r, sigma, option_type="Call"):
+def bs_price_vectorized(
+    S_array: Sequence[float],
+    K: float,
+    T: float,
+    r: float,
+    sigma: float,
+    option_type: str = "Call",
+) -> np.ndarray:
+    """
+    Vectorized wrapper for bs_price over a sequence/array of spot values.
+
+    Parameters
+    ----------
+    S_array : sequence of float
+        Spots to evaluate.
+    K, T, r, sigma : see bs_price
+    option_type : str, optional
+        'Call' or 'Put' (default: 'Call').
+
+    Returns
+    -------
+    np.ndarray
+        Array of option prices (float).
+    """
     Sarr = np.array(S_array, dtype=float)
     return np.vectorize(
         lambda s: bs_price(s, K, T, r, sigma, option_type)
     )(Sarr)
 
 
-def bs_greeks(S, K, T, r, sigma, option_type="Call"):
+def bs_greeks(
+    S: float,
+    K: float,
+    T: float,
+    r: float,
+    sigma: float,
+    option_type: str = "Call",
+) -> Dict[str, float]:
+    """
+    Compute basic Black-Scholes greeks: delta, gamma, vega, theta, rho.
+
+    Edge-cases:
+      - If T <= 0, returns payoff-based delta and zeros for other greeks.
+      - If sigma <= 0, returns zeros for greeks.
+
+    Parameters
+    ----------
+    S : float
+        Spot price.
+    K : float
+        Strike price.
+    T : float
+        Time to expiry in years.
+    r : float
+        Continuously compounded risk-free rate.
+    sigma : float
+        Volatility (annualised).
+    option_type : str, optional
+        'Call' or 'Put' (default: 'Call').
+
+    Returns
+    -------
+    dict
+        {'delta': float, 'gamma': float, 'vega': float, 'theta': float, 'rho': float}
+    """
     if T <= 0:
         if option_type == "Call":
             delta = 1.0 if S > K else 0.0
@@ -82,7 +206,7 @@ def bs_greeks(S, K, T, r, sigma, option_type="Call"):
     delta = cdf_d1 if option_type == "Call" else cdf_d1 - 1.0
     gamma = pdf_d1 / (S * sigma * sqrt(T))
     vega = S * pdf_d1 * sqrt(T)
-    term1 = - (S * pdf_d1 * sigma) / (2 * sqrt(T))
+    term1 = -(S * pdf_d1 * sigma) / (2 * sqrt(T))
 
     if option_type == "Call":
         theta = term1 - r * K * exp(-r * T) * cdf_d2
@@ -104,8 +228,42 @@ def bs_greeks(S, K, T, r, sigma, option_type="Call"):
     }
 
 
-def weighted_return_percent(prices, entry, mult, fx_rate, fund_nav, sign=1.0):
-    ret_per_contract = (prices - entry) * sign
+def weighted_return_percent(
+    prices: Union[Sequence[float], np.ndarray, float],
+    entry: float,
+    mult: float,
+    fx_rate: float,
+    fund_nav: float,
+    sign: float = 1.0,
+) -> np.ndarray:
+    """
+    Compute weighted return as percentage of NAV.
+
+    The function accepts either a scalar or an array-like `prices`. It returns an
+    ndarray of weighted returns (in percent).
+
+    Parameters
+    ----------
+    prices : sequence of float or float
+        Price(s) to evaluate (option contract value).
+    entry : float
+        Entry price (per contract).
+    mult : float
+        Multiplier (qty * lot size).
+    fx_rate : float
+        FX rate used to convert contract P&L to NAV currency.
+    fund_nav : float
+        Fund NAV (denominator).
+    sign : float, optional
+        +1 for long, -1 for short (default: 1.0).
+
+    Returns
+    -------
+    np.ndarray
+        Weighted returns as percentages. If fx_rate or fund_nav is zero, returns
+        an array of NaNs of the appropriate shape.
+    """
+    ret_per_contract = (np.asarray(prices, dtype=float) - entry) * sign
     total_ret = ret_per_contract * mult
 
     if fx_rate == 0 or fund_nav == 0:
@@ -115,23 +273,77 @@ def weighted_return_percent(prices, entry, mult, fx_rate, fund_nav, sign=1.0):
     return weighted * 100.0
 
 
-def surface_value_normalisation(v, vmin, vmax):
+def surface_value_normalisation(v: float, vmin: float, vmax: float) -> float:
+    """
+    Normalize a value `v` into [0,1] based on vmin..vmax.
+
+    Parameters
+    ----------
+    v : float
+        Value to normalise.
+    vmin : float
+        Minimum of normalization range.
+    vmax : float
+        Maximum of normalization range.
+
+    Returns
+    -------
+    float
+        Normalised value in floating point.
+    """
     return float((v - vmin) / (vmax - vmin))
 
 
 def find_zero_crossings(
-    x_arr,
-    y_arr,
-    func_exact=None,
-    brent_xtol=1e-10,
-    brent_rtol=1e-12,
-    brent_maxiter=200,
-    min_search_tol=1e-10,
-    min_search_maxiter=100,
-):
+    x_arr: Sequence[float],
+    y_arr: Sequence[float],
+    func_exact: Optional[Callable[[float], float]] = None,
+    brent_xtol: float = 1e-10,
+    brent_rtol: float = 1e-12,
+    brent_maxiter: int = 200,
+    min_search_tol: float = 1e-10,
+    min_search_maxiter: int = 100,
+) -> List[float]:
+    """
+    Find zero-crossings (roots) in a sampled function given by (x_arr, y_arr).
+
+    Behavior:
+      - Any exact grid points where |y| < 1e-14 are taken as roots.
+      - Sign changes between adjacent grid points attempt refinement via brentq on
+        an `func_exact` function (if provided). If `func_exact` is None, an
+        exact function is built from `st.session_state` and the current legs
+        (this preserves existing behaviour).
+      - If brentq fails or doesn't bracket, falls back to linear interpolation.
+      - Detects potential tangent/root-touch using `minimize_scalar` when both
+        adjacent values are small but have no sign change.
+      - Results are deduplicated and sorted.
+
+    Parameters
+    ----------
+    x_arr : sequence of float
+        Sampled x values (monotonic).
+    y_arr : sequence of float
+        Sampled y values corresponding to x_arr.
+    func_exact : callable, optional
+        Exact function f(S) used to refine roots; must accept float and return float.
+        If None (default), the function will compute `f` from `st.session_state` legs.
+    brent_xtol, brent_rtol, brent_maxiter : solver tolerances/limits for brentq.
+    min_search_tol, min_search_maxiter : options passed to minimize_scalar for tangent detection.
+
+    Returns
+    -------
+    list of float
+        Sorted list of distinct root x-values.
+    """
     if func_exact is None:
 
-        def func_exact_local(S_val):
+        def func_exact_local(S_val: float) -> float:
+            """
+            Exact function built from st.session_state legs.
+
+            This mirrors the existing behaviour where find_zero_crossings
+            uses the session_state to compute the weighted-return at a given S.
+            """
             try:
                 legs = st.session_state.get("legs", [])
                 r = float(st.session_state.get("r", 0.0))
@@ -165,15 +377,15 @@ def find_zero_crossings(
 
     # caching wrapper to avoid recomputing same S many times in brentq
     @lru_cache(maxsize=8192)
-    def f_cached(S_rounded):
+    def f_cached(S_rounded: float) -> float:
         return float(func_exact(float(S_rounded)))
 
-    def f(S):
+    def f(S: float) -> float:
         # quantize S before cache-key so floating differences map to same cached bucket
         key = round(float(S), 12)
         return f_cached(key)
 
-    zeros = []
+    zeros: List[float] = []
     n = len(x_arr)
 
     for i in range(n):
@@ -243,7 +455,7 @@ def find_zero_crossings(
 
     # dedupe & sort results
     zeros_sorted = sorted(zeros)
-    final = []
+    final: List[float] = []
     for z in zeros_sorted:
         if not final:
             final.append(z)
