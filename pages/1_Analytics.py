@@ -19,7 +19,8 @@ try:
     # ROOT = Path(__file__).resolve().parents[1]
     # excel_path = ROOT/"ACCF PM Model copy.xlsx"
     # df_sec = pd.read_excel(excel_path, sheet_name='Security Data Copy')
-    df_sec = pd.read_excel("ACCF PM Model copy.xlsx", sheet_name='Security Data Copy')
+    # df_sec = pd.read_excel("ACCF PM Model copy.xlsx", sheet_name='Security Data Copy')
+    df_sec = pd.read_csv("ACCF PM Model copy.csv")
     match = df_sec[df_sec['Underlying'] == option_market]
     if not match.empty:
         spot_from_file = float(match.iloc[0]['Spot'])
