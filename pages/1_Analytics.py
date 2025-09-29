@@ -11,7 +11,6 @@ st.sidebar.header("Parameter Details")
 
 if "option_market" not in st.session_state:
     st.session_state.option_market = "EUA"
-
 option_market = st.sidebar.selectbox(
     "Option Market", ["CCA", "UKA", "EUA"],
     index=["CCA", "UKA", "EUA"].index(st.session_state.option_market),
@@ -61,20 +60,17 @@ if "fund_nav" not in st.session_state:
 fund_nav = st.sidebar.number_input(
     "Fund NAV", min_value=1, value=int(st.session_state.fund_nav), step=1
 )
-fund_nav = st.session_state.fund_nav
+st.session_state.fund_nav = fund_nav
 
 if "current_days" not in st.session_state:
     st.session_state.current_days = 180
+    
 if "close_days" not in st.session_state:
     st.session_state.close_days = int(st.session_state.current_days // 4)
-
 close_days = st.sidebar.number_input(
     "Days until close", min_value=0, max_value=3650, value=st.session_state.close_days
 )
 st.session_state.close_days = close_days
-
-T_today = st.session_state.current_days / 365.0
-T_close = close_days / 365.0
 
 st.sidebar.markdown("---")
 st.sidebar.header("Option Details")
@@ -211,6 +207,16 @@ for leg in legs:
 st.session_state.legs = legs
 
 st.sidebar.markdown("---")
+st.sidebar.header("Heatmap")
+
+if "show_heatmap" not in st.session_state:
+    st.session_state.show_heatmap = False
+show_heatmap = st.sidebar.checkbox(
+    "Show heatmap", value=st.session_state.show_heatmap
+)
+st.session_state.show_heatmap = show_heatmap
+
+st.sidebar.markdown("---")
 st.sidebar.header("Surface")
 
 if "show_surface" not in st.session_state:
@@ -277,7 +283,7 @@ st.dataframe(legs_df)
 st.subheader("Weighted Return at Expiry")
 S_min = max(0.01, spot * 0.85)
 S_max = spot * 1.15
-S_pts = 400
+S_pts = 100             # reduce or increase this based on computing power
 S_range = np.linspace(S_min, S_max, S_pts)
 
 wr_close_total = np.zeros_like(S_range)
@@ -519,12 +525,126 @@ fig_time_expected.update_xaxes(range=[0, overall_max_days])
 st.plotly_chart(fig_time_expected, use_container_width=True)
 
 
+# ---------------------- Weighted Return Heatmap ----------------------
+if st.session_state.get("show_heatmap", False):
+    st.subheader("Weighted Return Heatmap")
+
+    time_steps = 100
+    if len(days_forward) > time_steps:
+        days_surface = np.linspace(0, days_forward[-1], time_steps, dtype=int)
+    else:
+        days_surface = days_forward
+
+    n_days, n_spots = len(days_surface), len(S_range)
+    wr_grid = np.zeros((n_days, n_spots), dtype=float)
+
+    for i, day in enumerate(days_surface):
+        wr_day_total = np.zeros(n_spots)
+        for leg in legs:
+            T_leg = max(0.0, (leg.get("days", st.session_state.current_days) - int(day)) / 365.0)
+            prices_day = bs_price_vectorized(S_range, leg["K"], T_leg, r, leg["vol"], leg["type"])
+            wr_day_total += weighted_return_percent(
+                prices_day, leg["entry"], leg["mult"], fx_rate, fund_nav, leg["sign"]
+            )
+        wr_grid[i, :] = wr_day_total
+
+    halfband = 0.0005
+    thr_neg = -halfband
+    thr_zero = 0.0
+    thr_pos = halfband
+
+    vmin = float(np.nanmin(wr_grid))
+    vmax = float(np.nanmax(wr_grid))
+    if vmin == vmax:
+        vmin -= 1e-6
+        vmax += 1e-6
+
+    if vmax <= 0.0:
+        colorscale = [
+            (0.0, "#8B0000"),
+            (0.25, "#ff6666"),
+            (0.5, "#ff9999"),
+            (0.75, "#ffcccc"),
+            (1.0, "#ffe6e6"),
+        ]
+    elif vmin >= 0.0:
+        colorscale = [
+            (0.0, "#e6ffea"),
+            (0.25, "#b3ffcc"),
+            (0.5, "#80ffa6"),
+            (0.75, "#33cc33"),
+            (1.0, "#006400"),
+        ]
+    else:
+        p_neg = min(max(surface_value_normalisation(thr_neg, vmin, vmax), 0.0), 1.0)
+        p_zero = min(max(surface_value_normalisation(thr_zero, vmin, vmax), 0.0), 1.0)
+        p_pos = min(max(surface_value_normalisation(thr_pos, vmin, vmax), 0.0), 1.0)
+
+        eps = 1e-4
+        p_before_neg = max(0.0, p_neg - eps)
+        p_after_neg = min(1.0, p_neg + eps)
+        p_before_pos = max(0.0, p_pos - eps)
+        p_after_pos = min(1.0, p_pos + eps)
+
+        colorscale = [
+            (0.0, "#8B0000"),           # deep negative
+            (p_before_neg, "#ff6666"),  # towards light pink before white
+            (p_neg, "#ffe6e6"),         # light pink at negative threshold
+            (p_after_neg, "#ffffff"),   # start white band
+            (p_before_pos, "#ffffff"),  # end white band
+            (p_pos, "#e6ffea"),         # light green at positive threshold
+            (p_after_pos, "#00b300"),   # green beyond threshold
+            (1.0, "#006400"),           # deep positive
+        ]
+
+    fig_heat = go.Figure()
+    fig_heat.add_trace(
+        go.Heatmap(
+            x=days_surface,
+            y=S_range,
+            z=wr_grid.T,
+            hovertemplate="Day %{x}<br>Spot %{y:.2f}<br>Weighted return: %{z:.6f}%<extra></extra>",
+            showscale=False,
+            colorscale=colorscale,
+            zmin=vmin,
+            zmax=vmax,
+        )
+    )
+
+    if 0 <= st.session_state.close_days <= st.session_state.current_days:
+        fig_heat.add_shape(
+            type="line",
+            x0=st.session_state.close_days,
+            x1=st.session_state.close_days,
+            y0=S_min,
+            y1=S_max,
+            line=dict(color="black", dash="dash"),
+            xref="x",
+            yref="y",
+        )
+        fig_heat.add_annotation(
+            x=st.session_state.close_days,
+            y=S_max,
+            text=f"Close in {st.session_state.close_days}d",
+            showarrow=False,
+            yanchor="bottom",
+        )
+
+    fig_heat.update_layout(
+        xaxis_title="Days",
+        yaxis_title="Spot",
+        height=700,
+    )
+    st.plotly_chart(fig_heat, use_container_width=True)
+
+
 # ---------------------- Weighted Return Surface ----------------------
 if st.session_state.get("show_surface", False):
     st.subheader("Weighted Return Surface")
 
-    if len(days_forward) > 100:
-        days_surface = np.linspace(0, days_forward[-1], 100, dtype=int)
+    time_steps = 100
+    if len(days_forward) > time_steps:               # time_steps integers will be evenly sampled between 0 and expiry instead
+        days_surface = np.linspace(0, days_forward[-1], time_steps, dtype=int)
     else:
         days_surface = days_forward
 
