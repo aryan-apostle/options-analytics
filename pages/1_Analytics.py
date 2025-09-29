@@ -18,7 +18,7 @@ st.session_state.option_market = option_market
 try:
     ROOT = Path(__file__).resolve().parents[1]
     excel_path = ROOT/"ACCF PM Model copy.xlsx"
-    df_sec = pd.read_excel(excel_path, sheet_name='Security Data')
+    df_sec = pd.read_excel(excel_path, sheet_name='Security Data Copy')
     # df_sec = pd.read_excel("ACCF PM Model copy.xlsx", sheet_name='Security Data')
     match = df_sec[df_sec['Underlying'] == option_market]
     if not match.empty:
@@ -48,7 +48,10 @@ if 'expected_spot' not in st.session_state:
 expected_spot = st.sidebar.number_input("Expected Spot", min_value=0.01, value=float(st.session_state.expected_spot), step=0.01, format="%.2f")
 st.session_state.expected_spot = expected_spot
 
-fund_nav = 28560000.0
+if 'fund_nav' not in st.session_state:
+    st.session_state.fund_nav = 28560000
+fund_nav = st.sidebar.number_input("Fund NAV", min_value=1, value=int(st.session_state.fund_nav), step=1)
+fund_nav = st.session_state.fund_nav
 
 if 'current_days' not in st.session_state:
     st.session_state.current_days = 180
@@ -89,6 +92,8 @@ for i in range(MAX_LEGS):
         st.session_state[f'options_size_{i}'] = 1000
     if f'options_days_{i}' not in st.session_state:
         st.session_state[f'options_days_{i}'] = int(st.session_state.current_days)
+    if f'options_delta_{i}' not in st.session_state:
+        st.session_state[f'options_delta_{i}'] = 0.5
 
 legs = []
 MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -105,6 +110,7 @@ for i in range(int(num_legs)):
         l_entry_val = float(st.session_state.get(f'options_entry_{i}', 1.0))
         l_days_val = int(st.session_state.get(f'options_days_{i}', st.session_state.current_days))
         l_expiry_date = None
+        l_delta_val = float(st.session_state.get(f'options_delta_{i}', 0.5))
 
         try:
             df_options_source = match.copy() if 'match' in locals() else pd.DataFrame()
@@ -136,20 +142,26 @@ for i in range(int(num_legs)):
                         l_expiry_date = pd.to_datetime(row['Expiry Date'])
                         today = pd.to_datetime('today').normalize()
                         l_days_val = max(0, int((l_expiry_date.normalize() - today).days))
+                    if 'Delta' in row.index and pd.notna(row['Delta']):
+                        l_delta_val = float(row['Delta'])
                 else:
                     st.write(f"No match for leg {i+1}")
         except Exception as e:
             st.write(f"Error matching option row for leg {i+1}: {e}")
 
-
         l_type = 'Call' if str(opt_code).upper() == 'C' else 'Put'
         l_size = 1000
 
         legs.append({
-            'type': l_type, 'side': st.selectbox(f"Side {i+1}", ['Long','Short'], key=f'options_side_{i}'),
+            'type': l_type, 
+            'side': st.selectbox(f"Side {i+1}", ['Long','Short'], key=f'options_side_{i}'),
             'K': float(l_strike),
-            'vol': float(l_vol_val), 'entry': float(l_entry_val),
-            'qty': int(l_qty), 'size': int(l_size), 'days': int(l_days_val)
+            'vol': float(l_vol_val), 
+            'entry': float(l_entry_val),
+            'qty': int(l_qty), 
+            'size': int(l_size), 
+            'days': int(l_days_val),
+            'delta':float(l_delta_val)
         })
 
 if st.sidebar.button("Reset"):
@@ -197,8 +209,15 @@ st.table(params_df)
 # ---------------------- Option Legs Table ----------------------
 st.subheader("Option Legs Summary")
 legs_df = pd.DataFrame([{
-    'Type': l['type'], 'Side': l['side'], 'Strike': l['K'], 'Vol': l['vol'], 
-    'Price': l['entry'], 'Qty': l['qty'], 'Lot Size': l['size'], 'Days to Expiry': l.get('days', st.session_state.current_days)
+    'Type': l['type'], 
+    'Side': l['side'], 
+    'Strike': l['K'], 
+    'Vol': l['vol'], 
+    'Price': l['entry'], 
+    'Qty': l['qty'], 
+    'Lot Size': l['size'], 
+    'Days to Expiry': l.get('days', st.session_state.current_days),
+    'Delta': l['delta'] 
 } for l in legs])
 st.dataframe(legs_df)
 
@@ -206,9 +225,10 @@ st.dataframe(legs_df)
 
 # ---------------------- Weighted Return at Expiry ----------------------
 st.subheader("Weighted Return at Expiry")
-S_min = max(0.01, spot * 0.5)
-S_max = spot * 1.5 + 1.0
-S_range = np.linspace(S_min, S_max, 3600)
+S_min = max(0.01, spot * 0.85)
+S_max = spot * 1.15
+S_pts = 400
+S_range = np.linspace(S_min, S_max, S_pts)
 
 wr_close_total = np.zeros_like(S_range)
 wr_exp_total = np.zeros_like(S_range)
@@ -227,7 +247,7 @@ breakevens = [float(np.round(b, 10)) for b in breakevens]
 combined = np.hstack((wr_close_total, wr_exp_total))
 finite_vals = combined[~np.isnan(combined)]
 y_min, y_max = (-1.0, 1.0) if finite_vals.size==0 else (float(np.nanmin(finite_vals)-0.05*(np.nanmax(finite_vals)-np.nanmin(finite_vals))),
-                                                         float(np.nanmax(finite_vals)+0.05*(np.nanmax(finite_vals)-np.nanmin(finite_vals))))
+                                                        float(np.nanmax(finite_vals)+0.05*(np.nanmax(finite_vals)-np.nanmin(finite_vals))))
 
 fig2 = go.Figure()
 fig2.add_trace(go.Scatter(x=S_range, y=wr_close_total, mode='lines', name=f'Close in {st.session_state.close_days}d',
@@ -306,10 +326,14 @@ st.plotly_chart(fig_time_expected, use_container_width=True)
 # ---------------------- Weighted Return Surface ----------------------
 if st.session_state.get('show_surface', False):
     st.subheader("Weighted Return Surface")
-    n_days, n_spots = len(days_forward), len(S_range)
+    if len(days_forward) > 100:
+        days_surface = np.linspace(0, days_forward[-1], 100, dtype=int)
+    else:
+        days_surface = days_forward
+    n_days, n_spots = len(days_surface), len(S_range)
     wr_grid = np.zeros((n_days, n_spots), dtype=float)
 
-    for i, day in enumerate(days_forward):
+    for i, day in enumerate(days_surface):
         wr_day_total = np.zeros(n_spots)
         for leg in legs:
             T_leg = max(0.0, (leg.get('days', st.session_state.current_days) - int(day)) / 365.0)
@@ -318,11 +342,11 @@ if st.session_state.get('show_surface', False):
         wr_grid[i,:] = wr_day_total
 
     fig_3d = go.Figure()
-    fig_3d.add_trace(go.Surface(x=days_forward, y=S_range, z=wr_grid.T,
+    fig_3d.add_trace(go.Surface(x=days_surface, y=S_range, z=wr_grid.T,
                                 hovertemplate='Day %{x}<br>Spot %{y:.2f}<br>Weighted return: %{z:.6f}%<extra></extra>',
                                 showscale=False, colorscale='Viridis', cmin=-5, cmax=5))
     if 0 <= st.session_state.close_days <= st.session_state.current_days:
-        close_idx = int(np.argmin(np.abs(days_forward - st.session_state.close_days)))
+        close_idx = int(np.argmin(np.abs(days_surface - st.session_state.close_days)))
         fig_3d.add_trace(go.Scatter3d(x=[st.session_state.close_days]*n_spots, y=S_range, z=wr_grid[close_idx,:], mode='lines',
                                       line=dict(color='blue', width=2, dash='dash'),
                                       name=f'Close in {st.session_state.close_days}d'))
