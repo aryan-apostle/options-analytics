@@ -853,3 +853,142 @@ if st.session_state.get("show_greeks", True):
 
         fig_greek.update_layout(xaxis_title="Days", yaxis_title=f"{k.capitalize()}", height=420)
         st.plotly_chart(fig_greek, use_container_width=True)
+        
+        
+        
+# ---------------------- Monte Carlo ----------------------
+# st.sidebar.markdown("---")
+# st.sidebar.header("Monte Carlo")
+
+# if "mc_hist_years" not in st.session_state:
+#     st.session_state.mc_hist_years = 3
+# mc_hist_years = st.sidebar.number_input(
+#     "History years for MC", min_value=1, max_value=3, value=int(st.session_state.mc_hist_years), step=1
+# )
+# st.session_state.mc_hist_years = mc_hist_years
+
+# if "mc_days" not in st.session_state:
+#     st.session_state.mc_days = 30
+# mc_days = st.sidebar.number_input(
+#     "MC days forward", min_value=1, max_value=365, value=int(st.session_state.mc_days), step=1
+# )
+# st.session_state.mc_days = mc_days
+
+# if "mc_paths" not in st.session_state:
+#     st.session_state.mc_paths = 2000
+# mc_paths = st.sidebar.number_input(
+#     "MC paths", min_value=100, max_value=20000, value=int(st.session_state.mc_paths), step=100
+# )
+# st.session_state.mc_paths = mc_paths
+
+# st.session_state.mc_seed = 42
+
+# st.subheader("Monte Carlo Price Paths")
+
+# price_data = pd.read_csv('Historical Options Price.csv')
+# price_data = price_data.sort_index()
+
+# price_series = price_data[st.session_state.option_market]
+# # use the last N days corresponding to hist years (assume 252 trading days)
+# hist_days = int(max(10, min(len(price_series)-1, int(mc_hist_years * 252))))
+# hist_series = price_series.iloc[-(hist_days+1):]  # +1 so returns length = hist_days
+# returns = np.log(hist_series / hist_series.shift(1)).dropna().values  # daily log returns
+
+# mu_d = float(np.nanmean(returns))      # daily mean log-return (trading days)
+# sigma_d = float(np.nanstd(returns, ddof=1))  # daily std dev (trading days)
+
+# # Convert trading-day stats to calendar-day equivalents (useful if pricing uses 365-day year)
+# # annualise from trading days then de-annualise to calendar-day
+# mu_annual = mu_d * 252.0
+# sigma_annual = sigma_d * np.sqrt(252.0)
+
+# mu_calendar_daily = mu_annual / 365.0
+# sigma_calendar_daily = sigma_annual / np.sqrt(365.0)
+
+# # simulate GBM using bootstrap of historical returns (resample historical standardized residuals)
+# dt = 1.0 / 365.0
+# rng = np.random.default_rng(None if int(st.session_state.mc_seed) == 0 else int(st.session_state.mc_seed))
+
+# if returns.size < 2:
+#     st.write("Insufficient returns to perform bootstrap Monte Carlo.")
+# else:
+#     # standardise historical returns (guard against zero vol)
+#     if sigma_d == 0.0:
+#         zs = np.zeros_like(returns)
+#     else:
+#         zs = (returns - mu_d) / sigma_d
+
+#     # draw bootstrap indices
+#     idxs = rng.integers(0, len(zs), size=(int(mc_paths), int(mc_days)))
+#     z_samples = zs[idxs]  # shape (paths, days)
+
+#     # map standardized samples to calendar-day log-returns
+#     increments = mu_calendar_daily + sigma_calendar_daily * z_samples
+
+#     # cumulative log paths
+#     log_paths = np.cumsum(increments, axis=1)
+#     S0 = float(spot)
+#     S_paths = S0 * np.exp(log_paths)  # shape (paths, days)
+
+#     percentiles = [1, 10, 50, 90, 99]
+#     pct_prices = np.percentile(S_paths, percentiles, axis=0)  # shape (len(percentiles), days)
+
+#     # Prepare x-axis: include day0 (today) as spot
+#     days_idx = np.arange(0, mc_days + 1)
+#     dates_mc = (today + pd.to_timedelta(days_idx, unit="D")).strftime("%Y-%m-%d")
+#     # add day0 values
+#     pct_with_zero = np.zeros((len(percentiles), mc_days + 1), dtype=float)
+#     pct_with_zero[:, 0] = S0
+#     pct_with_zero[:, 1:] = pct_prices
+
+#     fig_mc = go.Figure()
+#     # add percentile traces
+#     for i, p in enumerate(percentiles):
+#         name = f"{p}th percentile"
+#         mode = "lines"
+#         line_kwargs = dict(dash="dash") if p != 50 else dict(width=3)
+#         fig_mc.add_trace(
+#             go.Scatter(
+#                 x=days_idx,
+#                 y=pct_with_zero[i, :],
+#                 mode=mode,
+#                 name=name,
+#                 line=line_kwargs,
+#                 hovertemplate="Date: %{x}<br>Price: %{y:.4f}<extra></extra>",
+#             )
+#         )
+
+#     # overlay a few sample paths (subsample)
+#     sample_n = min(10, int(mc_paths))
+#     idxs_sample = rng.choice(int(mc_paths), size=sample_n, replace=False)
+#     for ii, idx in enumerate(idxs_sample):
+#         path_vals = np.concatenate(([S0], S_paths[int(idx), :]))
+#         fig_mc.add_trace(
+#             go.Scatter(
+#                 x=days_idx,
+#                 y=path_vals,
+#                 mode="lines",
+#                 name=f"Path {ii+1}",
+#                 line=dict(width=1),
+#                 opacity=0.3,
+#                 showlegend=(ii == 0),
+#                 hovertemplate="Date: %{x}<br>Price: %{y:.4f}<extra></extra>",
+#             )
+#         )
+
+#     fig_mc.add_trace(
+#         go.Scatter(
+#             x=[0, 0],
+#             y=[np.min(S_paths), np.max(S_paths)],
+#             mode="lines",
+#             name=f"Spot = {S0:.2f}",
+#             line=dict(color="gray", dash="dot"),
+#         )
+#     )
+
+#     fig_mc.update_layout(
+#         xaxis_title="Days",
+#         yaxis_title="Price",
+#         height=520,
+#     )
+#     st.plotly_chart(fig_mc, use_container_width=True)
