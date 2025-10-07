@@ -263,7 +263,7 @@ st.session_state.mc_hist_years = mc_hist_years
 if "mc_days" not in st.session_state:
     st.session_state.mc_days = 30
 mc_days = st.sidebar.number_input(
-    "Days to simulate", min_value=1, max_value=365, value=int(st.session_state.mc_days), step=1
+    "Days to simulate", min_value=1, max_value=730, value=int(st.session_state.mc_days), step=1
 )
 st.session_state.mc_days = mc_days
 
