@@ -930,7 +930,7 @@ if st.session_state.get("show_monte_carlo", False):
     s0 = float(spot)
     s_paths = s0 * np.exp(log_paths)
 
-    percentiles = [1, 10, 25, 75, 90, 99]
+    percentiles = [1, 10, 25, 50, 75, 90, 99]
     pct_prices = np.percentile(s_paths, percentiles, axis=0)
     mean_path = np.mean(s_paths, axis=0)
 
