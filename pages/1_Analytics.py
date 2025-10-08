@@ -226,6 +226,16 @@ show_surface = st.sidebar.checkbox(
 )
 st.session_state.show_surface = show_surface
 
+# --- NEW: allow user to set surface days (default 100) ---
+if "surface_days" not in st.session_state:
+    st.session_state.surface_days = 100
+surface_days = st.sidebar.number_input(
+    "Surface days", min_value=10, max_value=1000, value=int(st.session_state.surface_days), step=1
+)
+st.session_state.surface_days = surface_days
+# --- end new ---
+
+
 st.sidebar.markdown("---")
 st.sidebar.header("Greeks")
 
@@ -314,8 +324,35 @@ st.dataframe(legs_df)
 
 # ---------------------- Weighted Return at Expiry ----------------------
 st.subheader("Weighted Return at Expiry")
-S_min = max(0.01, spot * 0.85)
-S_max = spot * 1.15
+if "use_custom_spot_range" not in st.session_state:
+    st.session_state.use_custom_spot_range = False
+use_custom_spot_range = st.sidebar.checkbox(
+    "Custom spot range", value=st.session_state.use_custom_spot_range
+)
+st.session_state.use_custom_spot_range = use_custom_spot_range
+
+default_S_min = max(0.01, spot * 0.85)
+default_S_max = spot * 1.15
+
+if st.session_state.use_custom_spot_range:
+    if "spot_min_override" not in st.session_state:
+        st.session_state.spot_min_override = float(default_S_min)
+    if "spot_max_override" not in st.session_state:
+        st.session_state.spot_max_override = float(default_S_max)
+
+    S_min = st.sidebar.number_input(
+        "Spot range min", min_value=0.01, value=float(st.session_state.spot_min_override), step=0.01, format="%.2f"
+    )
+    S_max = st.sidebar.number_input(
+        "Spot range max", min_value=0.01, value=float(st.session_state.spot_max_override), step=0.01, format="%.2f"
+    )
+
+    st.session_state.spot_min_override = S_min
+    st.session_state.spot_max_override = S_max
+else:
+    S_min = default_S_min
+    S_max = default_S_max
+
 S_pts = 100             # reduce or increase this based on computing power
 S_range = np.linspace(S_min, S_max, S_pts)
 
@@ -562,7 +599,9 @@ st.plotly_chart(fig_time_expected, use_container_width=True)
 if st.session_state.get("show_heatmap", False):
     st.subheader("Weighted Return Heatmap")
 
-    time_steps = 100
+    time_steps = int(st.session_state.surface_days)
+    if time_steps == 100:
+        time_steps = len(days_forward)
     if len(days_forward) > time_steps:
         days_surface = np.linspace(0, days_forward[-1], time_steps, dtype=int)
     else:
@@ -675,7 +714,9 @@ if st.session_state.get("show_heatmap", False):
 if st.session_state.get("show_surface", False):
     st.subheader("Weighted Return Surface")
 
-    time_steps = 100
+    time_steps = int(st.session_state.surface_days)
+    if time_steps == 100:
+        time_steps = len(days_forward)
     if len(days_forward) > time_steps:               # time_steps integers will be evenly sampled between 0 and expiry instead
         days_surface = np.linspace(0, days_forward[-1], time_steps, dtype=int)
     else:
