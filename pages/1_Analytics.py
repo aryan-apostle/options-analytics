@@ -226,19 +226,34 @@ show_surface = st.sidebar.checkbox(
 )
 st.session_state.show_surface = show_surface
 
+if len(legs) > 0:
+    _default_surface_days = int(max([l.get("days", st.session_state.current_days) for l in legs]))
+else:
+    _default_surface_days = int(st.session_state.current_days)
+
 if "surface_days" not in st.session_state:
-    st.session_state.surface_days = 100
+    st.session_state.surface_days = _default_surface_days
 surface_days = st.sidebar.number_input(
-    "Surface days", min_value=10, max_value=1000, value=int(st.session_state.surface_days), step=1
+    "Surface days", min_value=1, max_value=10000, value=int(st.session_state.surface_days), step=1
 )
 st.session_state.surface_days = surface_days
 
-if "use_custom_spot_range" not in st.session_state:
-    st.session_state.use_custom_spot_range = False
-use_custom_spot_range = st.sidebar.checkbox(
-    "Custom spot range", value=st.session_state.use_custom_spot_range
+_default_S_min = max(0.01, spot * 0.85)
+_default_S_max = spot * 1.15
+
+if "spot_min_override" not in st.session_state:
+    st.session_state.spot_min_override = float(_default_S_min)
+if "spot_max_override" not in st.session_state:
+    st.session_state.spot_max_override = float(_default_S_max)
+
+min_spot = st.sidebar.number_input(
+    "Minimum spot", min_value=0.01, value=float(st.session_state.spot_min_override), step=0.01, format="%.2f"
 )
-st.session_state.use_custom_spot_range = use_custom_spot_range
+max_spot = st.sidebar.number_input(
+    "Maximum spot", min_value=0.01, value=float(st.session_state.spot_max_override), step=0.01, format="%.2f"
+)
+st.session_state.spot_min_override = float(min_spot)
+st.session_state.spot_max_override = float(max_spot)
 
 st.sidebar.markdown("---")
 st.sidebar.header("Greeks")
@@ -332,24 +347,8 @@ st.subheader("Weighted Return at Expiry")
 default_S_min = max(0.01, spot * 0.85)
 default_S_max = spot * 1.15
 
-if st.session_state.use_custom_spot_range:
-    if "spot_min_override" not in st.session_state:
-        st.session_state.spot_min_override = float(default_S_min)
-    if "spot_max_override" not in st.session_state:
-        st.session_state.spot_max_override = float(default_S_max)
-
-    S_min = st.sidebar.number_input(
-        "Spot range min", min_value=0.01, value=float(st.session_state.spot_min_override), step=0.01, format="%.2f"
-    )
-    S_max = st.sidebar.number_input(
-        "Spot range max", min_value=0.01, value=float(st.session_state.spot_max_override), step=0.01, format="%.2f"
-    )
-
-    st.session_state.spot_min_override = S_min
-    st.session_state.spot_max_override = S_max
-else:
-    S_min = default_S_min
-    S_max = default_S_max
+S_min = float(st.session_state.get("spot_min_override", default_S_min))
+S_max = float(st.session_state.get("spot_max_override", default_S_max))
 
 S_pts = 100             # reduce or increase this based on computing power
 S_range = np.linspace(S_min, S_max, S_pts)
@@ -598,13 +597,15 @@ if st.session_state.get("show_heatmap", False):
     st.subheader("Weighted Return Heatmap")
 
     surface_days_input = int(st.session_state.surface_days)
-    if surface_days_input == 100:
+    max_possible_day = days_forward[-1] if len(days_forward) > 0 else surface_days_input
+
+    if surface_days_input >= max_possible_day:
         if len(days_forward) == 0:
             days_surface = np.array([0], dtype=int)
         else:
             days_surface = days_forward
     else:
-        max_day = min(surface_days_input, days_forward[-1] if len(days_forward) > 0 else surface_days_input)
+        max_day = min(surface_days_input, max_possible_day)
         days_surface = np.arange(0, max_day + 1, dtype=int)
 
     n_days, n_spots = len(days_surface), len(S_range)
@@ -715,13 +716,15 @@ if st.session_state.get("show_surface", False):
     st.subheader("Weighted Return Surface")
 
     surface_days_input = int(st.session_state.surface_days)
-    if surface_days_input == 100:
+    max_possible_day = days_forward[-1] if len(days_forward) > 0 else surface_days_input
+
+    if surface_days_input >= max_possible_day:
         if len(days_forward) == 0:
             days_surface = np.array([0], dtype=int)
         else:
             days_surface = days_forward
     else:
-        max_day = min(surface_days_input, days_forward[-1] if len(days_forward) > 0 else surface_days_input)
+        max_day = min(surface_days_input, max_possible_day)
         days_surface = np.arange(0, max_day + 1, dtype=int)
 
     n_days, n_spots = len(days_surface), len(S_range)
