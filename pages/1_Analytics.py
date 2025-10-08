@@ -226,15 +226,19 @@ show_surface = st.sidebar.checkbox(
 )
 st.session_state.show_surface = show_surface
 
-# --- NEW: allow user to set surface days (default 100) ---
 if "surface_days" not in st.session_state:
     st.session_state.surface_days = 100
 surface_days = st.sidebar.number_input(
     "Surface days", min_value=10, max_value=1000, value=int(st.session_state.surface_days), step=1
 )
 st.session_state.surface_days = surface_days
-# --- end new ---
 
+if "use_custom_spot_range" not in st.session_state:
+    st.session_state.use_custom_spot_range = False
+use_custom_spot_range = st.sidebar.checkbox(
+    "Custom spot range", value=st.session_state.use_custom_spot_range
+)
+st.session_state.use_custom_spot_range = use_custom_spot_range
 
 st.sidebar.markdown("---")
 st.sidebar.header("Greeks")
@@ -324,12 +328,6 @@ st.dataframe(legs_df)
 
 # ---------------------- Weighted Return at Expiry ----------------------
 st.subheader("Weighted Return at Expiry")
-if "use_custom_spot_range" not in st.session_state:
-    st.session_state.use_custom_spot_range = False
-use_custom_spot_range = st.sidebar.checkbox(
-    "Custom spot range", value=st.session_state.use_custom_spot_range
-)
-st.session_state.use_custom_spot_range = use_custom_spot_range
 
 default_S_min = max(0.01, spot * 0.85)
 default_S_max = spot * 1.15
@@ -599,13 +597,15 @@ st.plotly_chart(fig_time_expected, use_container_width=True)
 if st.session_state.get("show_heatmap", False):
     st.subheader("Weighted Return Heatmap")
 
-    time_steps = int(st.session_state.surface_days)
-    if time_steps == 100:
-        time_steps = len(days_forward)
-    if len(days_forward) > time_steps:
-        days_surface = np.linspace(0, days_forward[-1], time_steps, dtype=int)
+    surface_days_input = int(st.session_state.surface_days)
+    if surface_days_input == 100:
+        if len(days_forward) == 0:
+            days_surface = np.array([0], dtype=int)
+        else:
+            days_surface = days_forward
     else:
-        days_surface = days_forward
+        max_day = min(surface_days_input, days_forward[-1] if len(days_forward) > 0 else surface_days_input)
+        days_surface = np.arange(0, max_day + 1, dtype=int)
 
     n_days, n_spots = len(days_surface), len(S_range)
     wr_grid = np.zeros((n_days, n_spots), dtype=float)
@@ -714,13 +714,15 @@ if st.session_state.get("show_heatmap", False):
 if st.session_state.get("show_surface", False):
     st.subheader("Weighted Return Surface")
 
-    time_steps = int(st.session_state.surface_days)
-    if time_steps == 100:
-        time_steps = len(days_forward)
-    if len(days_forward) > time_steps:               # time_steps integers will be evenly sampled between 0 and expiry instead
-        days_surface = np.linspace(0, days_forward[-1], time_steps, dtype=int)
+    surface_days_input = int(st.session_state.surface_days)
+    if surface_days_input == 100:
+        if len(days_forward) == 0:
+            days_surface = np.array([0], dtype=int)
+        else:
+            days_surface = days_forward
     else:
-        days_surface = days_forward
+        max_day = min(surface_days_input, days_forward[-1] if len(days_forward) > 0 else surface_days_input)
+        days_surface = np.arange(0, max_day + 1, dtype=int)
 
     n_days, n_spots = len(days_surface), len(S_range)
     wr_grid = np.zeros((n_days, n_spots), dtype=float)
