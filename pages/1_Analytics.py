@@ -56,7 +56,7 @@ expected_spot = st.sidebar.number_input(
 st.session_state.expected_spot = expected_spot
 
 if "fund_nav" not in st.session_state:
-    st.session_state.fund_nav = 28560000
+    st.session_state.fund_nav = 31000000
 fund_nav = st.sidebar.number_input(
     "Fund NAV", min_value=1, value=int(st.session_state.fund_nav), step=1
 )
