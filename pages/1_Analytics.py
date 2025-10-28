@@ -835,7 +835,7 @@ if st.session_state.get("show_greeks", True):
 
     r = st.session_state.get("r", 0.0191)
     fx_rate = st.session_state.get("fx_rate", 0.56)
-    fund_nav = st.session_state.get("fund_nav", 28560000.0)
+    fund_nav = st.session_state.get("fund_nav", 31000000.0)
     current_days = st.session_state.get("current_days", 180)
     close_days = st.session_state.get("close_days", int(current_days // 4))
     num_legs = st.session_state.get("num_legs", 4)
