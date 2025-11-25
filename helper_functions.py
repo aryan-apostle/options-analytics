@@ -518,3 +518,45 @@ def get_option_by_delta(
     best_match = candidates.sort_values("dist").iloc[0]
     
     return best_match
+
+
+def save_strategy_data(
+    strat_name: str, 
+    current_spot: float, 
+    date_str: str, 
+    leg_data: list, 
+    df_scenarios: pd.DataFrame, 
+    total_cost: float,
+    fx_rate: float,
+    r_rate: float
+):
+    """Compiles and saves the strategy details to a CSV file."""
+    
+    metadata = {
+        'Run_Date': date_str,
+        'EUA_Spot': current_spot,
+        'Net_Cost_EUR': total_cost,
+        'FX_Rate': fx_rate,
+        'Risk_Free_Rate': r_rate,
+        'Strategy': strat_name,
+        'Qty_Per_Leg': qty_per_leg,
+        'Lot_Size': lot_size
+    }
+    
+    df_legs = pd.DataFrame(leg_data)
+    df_legs = df_legs.add_prefix('Leg_')
+
+    df_legs['Entry_ID'] = df_scenarios['Entry_ID'] = 1 
+
+    df_combined = df_legs.merge(df_scenarios, on='Entry_ID', how='cross')
+    df_combined = df_combined.drop(columns=['Entry_ID'])
+
+    for key, value in metadata.items():
+        df_combined[key] = value
+
+    HISTORY_FOLDER.mkdir(exist_ok=True)
+    filename = HISTORY_FOLDER / f"{strat_name.replace(' ', '_')}_{date_str}.csv"
+    
+    df_combined.to_csv(filename, index=False)
+    
+    return filename

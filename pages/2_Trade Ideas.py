@@ -9,6 +9,8 @@ st.set_page_config(page_title="ACCF Trade Ideas", layout="wide")
 # ---------------------- Parameters ----------------------
 st.title("EUA Trade Ideas")
 
+HISTORY_FOLDER = Path("Trade Ideas History")
+
 try:
     df_sec = pd.read_csv("ACCF PM Model Copy.csv")
     df_market = df_sec[df_sec["Underlying"] == "EUA"].copy()
@@ -34,7 +36,7 @@ fx_rate = st.session_state.fx_rate
 r = st.session_state.r
 fund_nav = st.session_state.get("fund_nav", 31000000)
 
-st.metric("EUA Reference Spot", f"€{spot:.2f}")
+st.metric("EUA Spot", f"€{spot:.2f}")
 
 
 # ---------------------- Next Quarter Scanner ----------------------
@@ -62,10 +64,10 @@ else:
 month_map = {3: "Mar", 6: "Jun", 9: "Sep", 12: "Dec"}
 target_month_str = month_map[target_m_num]
 target_year_str = str(target_year)
+current_date_str = today.strftime("%Y-%m-%d")
 
 st.write(f"**Scanning for Next Quarter Expiry:** {target_month_str} {target_year_str}")
 
-# Filter the dataframe for this specific Year first
 df_expiry_year = df_market[
     df_market["Year"].astype(str).str.strip().str[-2:] == target_year_str[-2:]
 ].copy()
@@ -164,7 +166,7 @@ for strat in strategies:
             })
         st.table(pd.DataFrame(leg_data))
         
-        cost_label = "You Pay" if total_cost > 0 else "You Receive"
+        cost_label = "Net Debit" if total_cost > 0 else "Net Credit"
         st.info(f"{cost_label}: €{abs(total_cost):.2f}")
 
         st.markdown("##### Return Scenarios (At Expiry)")
@@ -204,6 +206,76 @@ for strat in strategies:
             hide_index=True,
             use_container_width=True
         )
+
+        saved_file = save_strategy_data(
+            strat_name=strat["name"], 
+            current_spot=spot, 
+            date_str=current_date_str, 
+            leg_data=leg_data, 
+            df_scenarios=df_scenarios, 
+            total_cost=total_cost,
+            fx_rate=fx_rate,
+            r_rate=r
+        )
+        st.caption(f"Details for **{current_date_str}** automatically saved to: `{saved_file}`")
+
+        # 2. HISTORICAL COMPARISON INPUT
+        st.markdown("---")
+        st.markdown("##### 🕰️ Compare to Historic Data")
+        
+        compare_date_str = st.date_input(
+            f"Select Historic Date for {strat['name']}",
+            value=None,
+            min_value=datetime(2023, 1, 1),
+            max_value=today.date(),
+            key=f"date_input_{strat['name']}"
+        )
+        
+        if compare_date_str:
+            historic_date_str = compare_date_str.strftime("%Y-%m-%d")
+            historic_filename = HISTORY_FOLDER / f"{strat['name'].replace(' ', '_')}_{historic_date_str}.csv"
+            
+            if historic_filename.exists():
+                try:
+                    df_historic = pd.read_csv(historic_filename)
+                    
+                    st.success(f"Loaded historic data from {historic_date_str}!")
+                    
+                    historic_spot = df_historic['EUA_Spot'].iloc[0]
+                    
+                    comparison_summary = pd.DataFrame({
+                        'Metric': ['EUA Spot', f'{cost_label} (€)'],
+                        'Current': [f"€{spot:.2f}", f"€{abs(total_cost):.2f}"],
+                        f'Historic ({historic_date_str})': [f"€{historic_spot:.2f}", f"€{df_historic['Net_Cost_EUR'].abs().iloc[0]:.2f}"],
+                        'Difference': [f"€{spot - historic_spot:.2f}", f"€{abs(total_cost) - df_historic['Net_Cost_EUR'].abs().iloc[0]:.2f}"]
+                    })
+                    st.table(comparison_summary.set_index('Metric'))
+                    
+                    df_current_returns = df_scenarios.set_index('Move')['Net Return (% NAV)']
+                    df_historic_returns = df_historic.groupby('Move')['Net Return (% NAV)'].first()
+                    
+                    df_return_comp = pd.DataFrame({
+                        'Move': df_current_returns.index,
+                        'Current Return': df_current_returns.values,
+                        f'Historic Return ({historic_date_str})': df_historic_returns.values,
+                        'Difference': df_current_returns.values - df_historic_returns.values
+                    })
+
+                    st.markdown("###### Scenario Return Comparison")
+                    st.dataframe(
+                        df_return_comp.style.format({
+                            'Current Return': '{:.4f}%',
+                            f'Historic Return ({historic_date_str})': '{:.4f}%',
+                            'Difference': '{:+.4f}%'
+                        }),
+                        hide_index=True,
+                        use_container_width=True
+                    )
+
+                except Exception as e:
+                    st.error(f"Error reading historic file: {e}")
+            else:
+                st.warning(f"No historic data found for {historic_date_str} in the 'Trade Ideas History' folder.")
 
     with c2:
         wr_exp_total = np.zeros_like(S_range)
