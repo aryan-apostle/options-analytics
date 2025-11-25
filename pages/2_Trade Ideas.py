@@ -252,7 +252,8 @@ for strat in strategies:
                     st.table(comparison_summary.set_index('Metric'))
                     
                     df_current_returns = df_scenarios.set_index('Move')['Net Return (% NAV)']
-                    df_historic_returns = df_historic.groupby('Move')['Net Return (% NAV)'].first()
+                    df_historic_returns = df_historic[['Move', 'Net Return (% NAV)']].drop_duplicates(subset=['Move']).set_index('Move')['Net Return (% NAV)']
+                    df_historic_returns = df_historic_returns.reindex(df_current_returns.index)
                     
                     df_return_comp = pd.DataFrame({
                         'Move': df_current_returns.index,
