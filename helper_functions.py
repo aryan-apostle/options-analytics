@@ -583,8 +583,9 @@ def save_strategy_data(
 
     df_legs['Entry_ID'] = 1 
     df_scenarios['Entry_ID'] = 1 
-
-    df_combined = df_legs.merge(df_scenarios, on='Entry_ID', how='cross')
+    
+    df_combined = df_legs.merge(df_scenarios, how='cross') 
+    
     df_combined = df_combined.drop(columns=['Entry_ID'])
 
     for key, value in metadata.items():
