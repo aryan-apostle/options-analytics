@@ -114,6 +114,28 @@ if long_leg_bc is not None and short_leg_bc is not None:
 else:
     st.warning(f"Could not find matching options for Bull Call Spread in {target_month_str} {target_year_str}")
 
+# --- 3. Iron Condor ---
+# Buy 0.20 Delta Put, Sell 0.30 Delta Put
+# Buy 0.20 Delta Call, Sell 0.30 Delta Call
+long_leg_p = get_option_by_delta(df_expiry_year, 0.20, "Put", target_month_str)
+short_leg_p = get_option_by_delta(df_expiry_year, 0.30, "Put", target_month_str)
+long_leg_c = get_option_by_delta(df_expiry_year, 0.20, "Call", target_month_str)
+short_leg_c = get_option_by_delta(df_expiry_year, 0.30, "Call", target_month_str)
+
+if long_leg_p is not None and short_leg_p is not None and long_leg_c is not None and short_leg_c is not None:
+    strategies.append({
+        "name": "Iron Condor",
+        "desc": f"Long {long_leg_p['Strike']} Put + Long {long_leg_c['Strike']} Call/ Short {short_leg_p['Strike']} Put + Short {short_leg_c['Strike']} Call ({target_month_str} {target_year_str})",
+        "legs": [
+            {"side": "Long", "row": long_leg_p, "sign": 1.0},
+            {"side": "Short", "row": short_leg_p, "sign": -1.0},
+            {"side": "Long", "row": long_leg_c, "sign": 1.0},
+            {"side": "Short", "row": short_leg_c, "sign": -1.0},
+        ]
+    })
+else:
+    st.warning(f"Could not find matching options for Iron Condor in {target_month_str} {target_year_str}")
+
 
 # ---------------------- Weighted Return at Expiry ----------------------
 for strat in strategies:
