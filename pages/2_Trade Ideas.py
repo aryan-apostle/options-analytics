@@ -164,7 +164,7 @@ for strat in strategies:
             })
         st.table(pd.DataFrame(leg_data))
         
-        cost_label = "Net Debit" if total_cost > 0 else "Net Credit"
+        cost_label = "You Pay" if total_cost > 0 else "You Receive"
         st.info(f"{cost_label}: €{abs(total_cost):.2f}")
 
         st.markdown("##### Return Scenarios (At Expiry)")
