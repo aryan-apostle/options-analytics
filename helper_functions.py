@@ -465,3 +465,56 @@ def find_zero_crossings(
                 final.append(z)
 
     return final
+
+
+def get_option_by_delta(
+    df: pd.DataFrame, 
+    target_delta_abs: float, 
+    opt_type: str, 
+    expiry_filter: Optional[str] = None, 
+    tolerance: float = 0.05
+) -> Optional[pd.Series]:
+    """
+    Scans the dataframe for an option nearest to the target absolute delta.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataframe containing option market data.
+    target_delta_abs : float
+        The target delta value (absolute) to search for (e.g., 0.25).
+    opt_type : str
+        The type of option ("Call" or "Put").
+    expiry_filter : str, optional
+        The expiry month to filter by (e.g., "Mar"). Defaults to None.
+    tolerance : float, optional
+        The maximum deviation allowed from the target delta. Defaults to 0.05.
+
+    Returns
+    -------
+    pd.Series or None
+        The row corresponding to the best matching option, or None if no match is found.
+    """
+    temp_df = df.copy()
+    
+    type_char = "C" if opt_type == "Call" else "P"
+    temp_df = temp_df[temp_df["Opt Type"].str.strip().str.upper().str.startswith(type_char)]
+
+    if expiry_filter:
+        temp_df = temp_df[temp_df["Month"] == expiry_filter]
+
+    temp_df["AbsDelta"] = pd.to_numeric(temp_df["Delta"], errors='coerce').abs()
+    
+    mask = (temp_df["AbsDelta"] >= (target_delta_abs - tolerance)) & \
+           (temp_df["AbsDelta"] <= (target_delta_abs + tolerance))
+    
+    candidates = temp_df[mask]
+    
+    if candidates.empty:
+        return None
+    
+    candidates = candidates.copy()
+    candidates["dist"] = abs(candidates["AbsDelta"] - target_delta_abs)
+    best_match = candidates.sort_values("dist").iloc[0]
+    
+    return best_match

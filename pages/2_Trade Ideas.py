@@ -71,36 +71,6 @@ df_expiry_year = df_market[
 ].copy()
 
 
-# ---------------------- Logic: Find Options by Delta ----------------------
-
-def get_option_by_delta(df, target_delta_abs, opt_type, expiry_filter=None, tolerance=0.05):
-    """
-    Scans the dataframe for an option nearest to the target absolute delta.
-    """
-    temp_df = df.copy()
-    
-    type_char = "C" if opt_type == "Call" else "P"
-    temp_df = temp_df[temp_df["Opt Type"].str.strip().str.upper().str.startswith(type_char)]
-
-    if expiry_filter:
-        temp_df = temp_df[temp_df["Month"] == expiry_filter]
-
-    temp_df["AbsDelta"] = pd.to_numeric(temp_df["Delta"], errors='coerce').abs()
-    
-    mask = (temp_df["AbsDelta"] >= (target_delta_abs - tolerance)) & \
-           (temp_df["AbsDelta"] <= (target_delta_abs + tolerance))
-    
-    candidates = temp_df[mask]
-    
-    if candidates.empty:
-        return None
-    
-    candidates["dist"] = abs(candidates["AbsDelta"] - target_delta_abs)
-    best_match = candidates.sort_values("dist").iloc[0]
-    
-    return best_match
-
-
 # ---------------------- Strategy Builder ----------------------
 strategies = []
 
@@ -168,7 +138,7 @@ for strat in strategies:
         st.table(pd.DataFrame(leg_data))
         
         net_premium = (float(leg_data[0]['Price']) - float(leg_data[1]['Price']))
-        st.info(f"Est. Net Debit: €{net_premium:.2f}")
+        st.info(f"Cost of Structure: €{net_premium:.2f}")
 
     with c2:
         wr_exp_total = np.zeros_like(S_range)
