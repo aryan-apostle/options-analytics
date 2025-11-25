@@ -166,7 +166,7 @@ for strat in strategies:
 
         st.markdown("##### Return Scenarios (At Expiry)")
         
-        scenarios_pct = np.array([-0.15, -0.10, -0.05, 0.05, 0.10, 0.15])
+        scenarios_pct = np.array([-0.15, -0.10, -0.05, 0.0, 0.05, 0.10, 0.15])
         scenario_spots = spot * (1 + scenarios_pct)
         scenario_returns = np.zeros_like(scenario_spots)
 
