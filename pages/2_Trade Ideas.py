@@ -215,11 +215,13 @@ for strat in strategies:
             df_scenarios=df_scenarios, 
             total_cost=total_cost,
             fx_rate=fx_rate,
-            r_rate=r
+            r_rate=r,
+            qty_per_leg=qty_per_leg,
+            lot_size=lot_size,
+            history_folder=HISTORY_FOLDER
         )
         st.caption(f"Details for **{current_date_str}** automatically saved to: `{saved_file}`")
 
-        # 2. HISTORICAL COMPARISON INPUT
         st.markdown("---")
         st.markdown("##### 🕰️ Compare to Historic Data")
         

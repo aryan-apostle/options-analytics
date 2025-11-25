@@ -524,13 +524,48 @@ def save_strategy_data(
     strat_name: str, 
     current_spot: float, 
     date_str: str, 
-    leg_data: list, 
+    leg_data: List[dict], 
     df_scenarios: pd.DataFrame, 
     total_cost: float,
     fx_rate: float,
-    r_rate: float
-):
-    """Compiles and saves the strategy details to a CSV file."""
+    r_rate: float,
+    qty_per_leg: int,
+    lot_size: int,
+    history_folder: Path 
+) -> Path:
+    """
+    Compiles and saves the strategy details to a CSV file.
+
+    Parameters
+    ----------
+    strat_name : str
+        The name of the trading strategy.
+    current_spot : float
+        The EUA spot price at the time of execution.
+    date_str : str
+        The date of execution in YYYY-MM-DD format.
+    leg_data : list[dict]
+        A list of dictionaries describing each option leg.
+    df_scenarios : pd.DataFrame
+        DataFrame containing the scenario return analysis.
+    total_cost : float
+        The net cost (or credit) of the structure.
+    fx_rate : float
+        The FX rate used (e.g., EUR/AUD).
+    r_rate : float
+        The Risk-Free Rate used.
+    qty_per_leg : int
+        The quantity of contracts per leg.
+    lot_size : int
+        The multiplier for option contracts.
+    history_folder : Path
+        The Path object pointing to the desired history directory.
+
+    Returns
+    -------
+    Path
+        The full Path object to the saved CSV file.
+    """
     
     metadata = {
         'Run_Date': date_str,
@@ -540,13 +575,14 @@ def save_strategy_data(
         'Risk_Free_Rate': r_rate,
         'Strategy': strat_name,
         'Qty_Per_Leg': qty_per_leg,
-        'Lot_Size': lot_size
+        'Lot_Size': lot_size       
     }
     
     df_legs = pd.DataFrame(leg_data)
     df_legs = df_legs.add_prefix('Leg_')
 
-    df_legs['Entry_ID'] = df_scenarios['Entry_ID'] = 1 
+    df_legs['Entry_ID'] = 1 
+    df_scenarios['Entry_ID'] = 1 
 
     df_combined = df_legs.merge(df_scenarios, on='Entry_ID', how='cross')
     df_combined = df_combined.drop(columns=['Entry_ID'])
@@ -554,8 +590,8 @@ def save_strategy_data(
     for key, value in metadata.items():
         df_combined[key] = value
 
-    HISTORY_FOLDER.mkdir(exist_ok=True)
-    filename = HISTORY_FOLDER / f"{strat_name.replace(' ', '_')}_{date_str}.csv"
+    history_folder.mkdir(exist_ok=True)
+    filename = history_folder / f"{strat_name.replace(' ', '_')}_{date_str}.csv"
     
     df_combined.to_csv(filename, index=False)
     
