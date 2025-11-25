@@ -65,7 +65,7 @@ target_year_str = str(target_year)
 
 st.write(f"**Scanning for Next Quarter Expiry:** {target_month_str} {target_year_str}")
 
-# Filter the dataframe for this specific Year first (to differentiate Mar 25 vs Mar 26) - match the last 2 digits of the year to be safe (e.g. '2026' matches '26')
+# Filter the dataframe for this specific Year first
 df_expiry_year = df_market[
     df_market["Year"].astype(str).str.strip().str[-2:] == target_year_str[-2:]
 ].copy()
@@ -125,7 +125,7 @@ short_leg_c = get_option_by_delta(df_expiry_year, 0.30, "Call", target_month_str
 if long_leg_p is not None and short_leg_p is not None and long_leg_c is not None and short_leg_c is not None:
     strategies.append({
         "name": "Iron Condor",
-        "desc": f"Long {long_leg_p['Strike']} Put + Long {long_leg_c['Strike']} Call/ Short {short_leg_p['Strike']} Put + Short {short_leg_c['Strike']} Call ({target_month_str} {target_year_str})",
+        "desc": f"Long {long_leg_p['Strike']} Put + Long {long_leg_c['Strike']} Call / Short {short_leg_p['Strike']} Put + Short {short_leg_c['Strike']} Call ({target_month_str} {target_year_str})",
         "legs": [
             {"side": "Long", "row": long_leg_p, "sign": 1.0},
             {"side": "Short", "row": short_leg_p, "sign": -1.0},
@@ -147,8 +147,13 @@ for strat in strategies:
         st.caption(strat["desc"])
 
         leg_data = []
+        total_cost = 0.0
+        
         for l in strat["legs"]:
             row = l['row']
+            price = float(row['Opt Price'])
+            total_cost += price if l['side'] == "Long" else -price
+            
             leg_data.append({
                 "Side": l['side'],
                 "Strike": row['Strike'],
@@ -159,8 +164,46 @@ for strat in strategies:
             })
         st.table(pd.DataFrame(leg_data))
         
-        net_premium = (float(leg_data[0]['Price']) - float(leg_data[1]['Price']))
-        st.info(f"Cost of Structure: €{net_premium:.2f}")
+        cost_label = "Net Debit" if total_cost > 0 else "Net Credit"
+        st.info(f"{cost_label}: €{abs(total_cost):.2f}")
+
+        st.markdown("##### Return Scenarios (At Expiry)")
+        
+        scenarios_pct = np.array([-0.15, -0.10, -0.05, 0.05, 0.10, 0.15])
+        scenario_spots = spot * (1 + scenarios_pct)
+        scenario_returns = np.zeros_like(scenario_spots)
+
+        for leg_info in strat["legs"]:
+            row = leg_info["row"]
+            sign = leg_info["sign"]
+            
+            K = float(row["Strike"])
+            vol = float(row["IVOL"])
+            entry_price = float(row["Opt Price"])
+            opt_type = "Call" if str(row["Opt Type"]).upper().startswith("C") else "Put"
+            
+            mult = qty_per_leg * lot_size
+
+            prices_scen = bs_price_vectorized(scenario_spots, K, 0.0, r, vol, opt_type)
+            
+            scenario_returns += weighted_return_percent(
+                prices_scen, entry_price, mult, fx_rate, fund_nav, sign
+            )
+
+        df_scenarios = pd.DataFrame({
+            "Move": [f"{p*100:+.0f}%" for p in scenarios_pct],
+            "Spot (€)": scenario_spots,
+            "Net Return (% NAV)": scenario_returns
+        })
+        
+        st.dataframe(
+            df_scenarios.style.format({
+                "Spot (€)": "{:.2f}",
+                "Net Return (% NAV)": "{:.4f}%"
+            }),
+            hide_index=True,
+            use_container_width=True
+        )
 
     with c2:
         wr_exp_total = np.zeros_like(S_range)
@@ -179,7 +222,6 @@ for strat in strategies:
             T_exp = days / 365.0
             
             prices_exp = bs_price_vectorized(S_range, K, 0.0, r, vol, opt_type)
-            
             prices_curr = bs_price_vectorized(S_range, K, T_exp, r, vol, opt_type)
 
             mult = qty_per_leg * lot_size
@@ -212,7 +254,7 @@ for strat in strategies:
             title=f"{strat['name']} - Weighted Return vs Spot",
             xaxis_title="EUA Spot Price",
             yaxis_title="Weighted Return (% NAV)",
-            height=350,
+            height=500, 
             margin=dict(l=20, r=20, t=40, b=20)
         )
         
