@@ -534,27 +534,28 @@ def save_strategy_data(
     history_folder: Path 
 ) -> Path:
     """
-    Compiles and saves the strategy details to a CSV file.
+    Compiles and saves the strategy details to a CSV file on the local file system.
 
     Parameters
     ----------
-    # ... (Docstring parameters remain the same) ...
+    strat_name : str
+        The name of the trading strategy.
+    # ... (rest of the parameters)
     """
     
     # --- 1. Flatten Options (Legs) Data and Metadata ---
-    
-    # Combine the options data (leg_data) into a single row/dictionary.
-    # This prepares it to be attached to the scenario DataFrame.
-    
     flattened_legs = {}
     for i, leg in enumerate(leg_data):
         prefix = f'Leg_{i+1}_'
-        flattened_legs[prefix + 'Side'] = leg['Side']
-        flattened_legs[prefix + 'Strike'] = leg['Strike']
-        flattened_legs[prefix + 'Type'] = leg['Type']
-        flattened_legs[prefix + 'Delta'] = leg['Delta']
-        flattened_legs[prefix + 'Price'] = leg['Price']
-        flattened_legs[prefix + 'IVOL'] = leg['IVOL']
+        # Note: We access the data using the dictionary structure of the leg_data, 
+        # which includes the 'sign' for tracking transaction type.
+        flattened_legs[prefix + 'Side'] = leg['side'] 
+        flattened_legs[prefix + 'Strike'] = leg['row']['Strike']
+        flattened_legs[prefix + 'Type'] = leg['row']['Opt Type']
+        flattened_legs[prefix + 'Delta'] = leg['row']['Delta']
+        flattened_legs[prefix + 'Price'] = leg['row']['Opt Price']
+        flattened_legs[prefix + 'IVOL'] = leg['row']['IVOL']
+        flattened_legs[prefix + 'Sign'] = leg['sign'] 
 
     # --- 2. Combine all fixed metadata ---
     metadata = {
@@ -562,24 +563,20 @@ def save_strategy_data(
         'EUA_Spot': current_spot,
         'Net_Cost_EUR': total_cost,
         'FX_Rate': fx_rate,
-        'Risk_Free_Rate': r_rate,
+        'Risk-Free_Rate': r_rate,
         'Strategy': strat_name,
         'Qty_Per_Leg': qty_per_leg,
         'Lot_Size': lot_size       
     }
     
-    # Combine metadata and flattened leg details
     full_metadata = {**metadata, **flattened_legs}
     
-    # --- 3. Attach Metadata to Scenarios ---
-    # Create the final DataFrame by starting with scenarios and adding columns
+    # --- 3. Attach Metadata to Scenarios and Write File ---
     df_combined = df_scenarios.copy()
     
     for key, value in full_metadata.items():
-        # Assign the same metadata value to every row of the scenario table
         df_combined[key] = value
 
-    # --- 4. Save to CSV ---
     history_folder.mkdir(exist_ok=True)
     filename = history_folder / f"{strat_name.replace(' ', '_')}_{date_str}.csv"
     

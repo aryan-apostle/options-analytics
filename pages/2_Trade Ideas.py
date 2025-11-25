@@ -57,7 +57,6 @@ elif curr_month < 12:
     target_m_num = 12
     target_year = curr_year
 else:
-    # If it is Dec (12), look for Mar (3) of next year
     target_m_num = 3
     target_year = curr_year + 1
 
@@ -83,7 +82,6 @@ S_max = spot * 1.15
 S_range = np.linspace(S_min, S_max, 100)
 
 # --- 1. Bear Put Spread ---
-# Buy 0.45 Delta Put, Sell 0.20 Delta Put
 long_leg_bp = get_option_by_delta(df_expiry_year, 0.45, "Put", target_month_str)
 short_leg_bp = get_option_by_delta(df_expiry_year, 0.20, "Put", target_month_str)
 
@@ -100,7 +98,6 @@ else:
     st.warning(f"Could not find matching options for Bear Put Spread in {target_month_str} {target_year_str}")
 
 # --- 2. Bull Call Spread ---
-# Buy 0.45 Delta Call, Sell 0.20 Delta Call
 long_leg_bc = get_option_by_delta(df_expiry_year, 0.45, "Call", target_month_str)
 short_leg_bc = get_option_by_delta(df_expiry_year, 0.20, "Call", target_month_str)
 
@@ -117,8 +114,6 @@ else:
     st.warning(f"Could not find matching options for Bull Call Spread in {target_month_str} {target_year_str}")
 
 # --- 3. Iron Condor ---
-# Buy 0.20 Delta Put, Sell 0.30 Delta Put
-# Buy 0.20 Delta Call, Sell 0.30 Delta Call
 long_leg_p = get_option_by_delta(df_expiry_year, 0.20, "Put", target_month_str)
 short_leg_p = get_option_by_delta(df_expiry_year, 0.30, "Put", target_month_str)
 long_leg_c = get_option_by_delta(df_expiry_year, 0.20, "Call", target_month_str)
@@ -148,7 +143,7 @@ for strat in strategies:
         st.subheader(strat["name"])
         st.caption(strat["desc"])
 
-        leg_data = []
+        leg_data_display = []
         total_cost = 0.0
         
         for l in strat["legs"]:
@@ -156,7 +151,7 @@ for strat in strategies:
             price = float(row['Opt Price'])
             total_cost += price if l['side'] == "Long" else -price
             
-            leg_data.append({
+            leg_data_display.append({
                 "Side": l['side'],
                 "Strike": row['Strike'],
                 "Type": row['Opt Type'],
@@ -164,7 +159,7 @@ for strat in strategies:
                 "Price": row['Opt Price'],
                 "IVOL": row['IVOL']
             })
-        st.table(pd.DataFrame(leg_data))
+        st.table(pd.DataFrame(leg_data_display))
         
         cost_label = "Net Debit" if total_cost > 0 else "Net Credit"
         st.info(f"{cost_label}: €{abs(total_cost):.2f}")
@@ -207,20 +202,23 @@ for strat in strategies:
             use_container_width=True
         )
 
-        saved_file = save_strategy_data(
-            strat_name=strat["name"], 
-            current_spot=spot, 
-            date_str=current_date_str, 
-            leg_data=leg_data, 
-            df_scenarios=df_scenarios, 
-            total_cost=total_cost,
-            fx_rate=fx_rate,
-            r_rate=r,
-            qty_per_leg=qty_per_leg,
-            lot_size=lot_size,
-            history_folder=HISTORY_FOLDER
-        )
-        st.caption(f"Details for **{current_date_str}** automatically saved to: `{saved_file}`")
+        try:
+            saved_file = save_strategy_data(
+                strat_name=strat["name"], 
+                current_spot=spot, 
+                date_str=current_date_str, 
+                leg_data=strat["legs"], 
+                df_scenarios=df_scenarios, 
+                total_cost=total_cost,
+                fx_rate=fx_rate,
+                r_rate=r,
+                qty_per_leg=qty_per_leg,
+                lot_size=lot_size,
+                history_folder=HISTORY_FOLDER
+            )
+            st.success(f"Data for **{current_date_str}** saved successfully to: `{saved_file}`")
+        except Exception as e:
+            st.error(f"Error saving data locally: {e}")
 
         st.markdown("---")
         st.markdown("##### 🕰️ Compare to Historic Data")
