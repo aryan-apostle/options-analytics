@@ -7,7 +7,7 @@ st.set_page_config(page_title="ACCF Trade Ideas", layout="wide")
 
 
 # ---------------------- Parameters ----------------------
-st.title("EUA Automated Trade Ideas")
+st.title("EUA Trade Ideas")
 
 try:
     df_sec = pd.read_csv("ACCF PM Model Copy.csv")
@@ -167,7 +167,7 @@ for strat in strategies:
             })
         st.table(pd.DataFrame(leg_data))
         
-        net_premium = (leg_data[0]['Price'] - leg_data[1]['Price'])
+        net_premium = (float(leg_data[0]['Price']) - float(leg_data[1]['Price']))
         st.info(f"Est. Net Debit: €{net_premium:.2f}")
 
     with c2:
