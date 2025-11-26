@@ -216,7 +216,6 @@ for strat in strategies:
                 lot_size=lot_size,
                 history_folder=HISTORY_FOLDER
             )
-            st.success(f"Data for **{current_date_str}** saved successfully to: `{saved_file}`")
         except Exception as e:
             st.error(f"Error saving data locally: {e}")
 
@@ -239,7 +238,7 @@ for strat in strategies:
                 try:
                     df_historic = pd.read_csv(historic_filename)
                     
-                    st.success(f"Loaded historic data from {historic_date_str}!")
+                    st.success(f"Loaded historic data from {historic_date_str}")
                     
                     historic_spot = df_historic['EUA_Spot'].iloc[0]
                     
