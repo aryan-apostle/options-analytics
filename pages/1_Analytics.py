@@ -76,7 +76,7 @@ st.sidebar.markdown("---")
 st.sidebar.header("Option Details")
 
 if "num_legs" not in st.session_state:
-    st.session_state.num_legs = 4
+    st.session_state.num_legs = 6
 num_legs = st.sidebar.number_input(
     "Number of legs", min_value=1, max_value=8, value=st.session_state.num_legs, step=1
 )
@@ -838,7 +838,7 @@ if st.session_state.get("show_greeks", True):
     fund_nav = st.session_state.get("fund_nav", 31000000.0)
     current_days = st.session_state.get("current_days", 180)
     close_days = st.session_state.get("close_days", int(current_days // 4))
-    num_legs = st.session_state.get("num_legs", 4)
+    num_legs = st.session_state.get("num_legs", 6)
     legs = st.session_state.get("legs", [])
 
     if len(legs) > 0:
