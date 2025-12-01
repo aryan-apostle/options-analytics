@@ -174,13 +174,13 @@ for i in range(int(num_legs)):
                         l_days_val = int(row["Days to Expiry"])
                     if "Delta" in row.index and pd.notna(row["Delta"]):
                         l_delta_val = float(row["Delta"])
-                    if "Carry p.a." in row.index and pd.notna(row["Carry p.a."]):
-                        try:
-                            carry_rate = float(row["Carry p.a."])
-                            T_years = float(l_days_val) / 365.0
-                            l_entry_val = float(l_entry_val) * (1.0 + carry_rate * T_years)
-                        except Exception:
-                            pass
+                    try:
+                        T_years = float(l_days_val) / 365.0
+                        K_adj = float(strike_val) * np.exp(float(r) * T_years)
+                        opt_type_calc = "Call" if opt_code_norm == "C" else "Put"
+                        l_entry_val = float(bs_price(spot, K_adj, T_years, r, l_vol_val, opt_type_calc))
+                    except Exception:
+                        pass
                 else:
                     st.write(f"No match for leg {i + 1}")
         except Exception as e:
