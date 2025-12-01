@@ -66,10 +66,6 @@ def bs_price(
     """
     Black-Scholes option price (Call or Put).
 
-    Handles edge cases:
-      - If T <= 0, returns intrinsic value.
-      - If sigma <= 0, returns forward intrinsic (discounted cash) form.
-
     Parameters
     ----------
     S : float
