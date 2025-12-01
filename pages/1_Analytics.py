@@ -174,6 +174,13 @@ for i in range(int(num_legs)):
                         l_days_val = int(row["Days to Expiry"])
                     if "Delta" in row.index and pd.notna(row["Delta"]):
                         l_delta_val = float(row["Delta"])
+                    if "Carry p.a." in row.index and pd.notna(row["Carry p.a."]):
+                        try:
+                            carry_rate = float(row["Carry p.a."])
+                            T_years = float(l_days_val) / 365.0
+                            l_entry_val = float(l_entry_val) * (1.0 + carry_rate * T_years)
+                        except Exception:
+                            pass
                 else:
                     st.write(f"No match for leg {i + 1}")
         except Exception as e:
