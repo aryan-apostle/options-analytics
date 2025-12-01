@@ -187,7 +187,7 @@ for i in range(int(num_legs)):
                             except Exception:
                                 carry = 0.0
                         days_to_calc = float(l_days_val)
-                        adjusted_notional = notional_spot * (1.0 + carry * (days_to_calc / 365.0))
+                        adjusted_notional = notional_spot * (1.0 + (carry * (days_to_calc / 365.0)))
                         K_adj = float(strike_val) * (1 + (float(r) * T_years))
                         opt_type_calc = "Call" if opt_code_norm == "C" else "Put"
                         l_entry_val = float(bs_price(adjusted_notional, K_adj, T_years, r, l_vol_val, opt_type_calc))
