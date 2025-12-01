@@ -176,10 +176,13 @@ for i in range(int(num_legs)):
                         l_delta_val = float(row["Delta"])
                     try:
                         T_years = float(l_days_val) / 365.0
+                        if "Notional" in row.index and pd.notna(row["Notional"]):
+                            notional_spot = float(row["Notional"])
+                        else:
+                            notional_spot = float(spot)
                         K_adj = float(strike_val) * (1 + (float(r) * T_years))
-                        print(K_adj)
                         opt_type_calc = "Call" if opt_code_norm == "C" else "Put"
-                        l_entry_val = float(bs_price(spot, K_adj, T_years, r, l_vol_val, opt_type_calc))
+                        l_entry_val = float(bs_price(notional_spot, K_adj, T_years, r, l_vol_val, opt_type_calc))
                     except Exception:
                         pass
                 else:
