@@ -176,7 +176,7 @@ for i in range(int(num_legs)):
                         l_delta_val = float(row["Delta"])
                     try:
                         T_years = float(l_days_val) / 365.0
-                        K_adj = float(strike_val) * np.exp(float(r) * T_years)
+                        K_adj = float(strike_val) * (1 + (float(r) * T_years))
                         opt_type_calc = "Call" if opt_code_norm == "C" else "Put"
                         l_entry_val = float(bs_price(spot, K_adj, T_years, r, l_vol_val, opt_type_calc))
                     except Exception:
