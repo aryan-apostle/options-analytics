@@ -174,25 +174,25 @@ for i in range(int(num_legs)):
                         l_days_val = int(row["Days to Expiry"])
                     if "Delta" in row.index and pd.notna(row["Delta"]):
                         l_delta_val = float(row["Delta"])
-                    try:
-                        T_years = float(l_days_val) / 365.0
-                        if "Notional" in row.index and pd.notna(row["Notional"]):
-                            notional_spot = float(row["Notional"])
-                        else:
-                            notional_spot = float(spot)
-                        carry = 0.0
-                        # if "Carry p.a." in row.index and pd.notna(row["Carry p.a."]):
-                        #     try:
-                        #         carry = float(row["Carry p.a."])
-                        #     except Exception:
-                        #         carry = 0.0
-                        days_to_calc = float(l_days_val)
-                        adjusted_notional = notional_spot * (1.0 + (carry * (days_to_calc / 365.0)))
-                        K_adj = float(strike_val) * (1 + (float(r) * T_years))
-                        opt_type_calc = "Call" if opt_code_norm == "C" else "Put"
-                        l_entry_val = float(bs_price(adjusted_notional, K_adj, T_years, r, l_vol_val, opt_type_calc))
-                    except Exception:
-                        pass
+                    # try:
+                    #     T_years = float(l_days_val) / 365.0
+                    #     if "Notional" in row.index and pd.notna(row["Notional"]):
+                    #         notional_spot = float(row["Notional"])
+                    #     else:
+                    #         notional_spot = float(spot)
+                    #     carry = 0.0
+                    #     # if "Carry p.a." in row.index and pd.notna(row["Carry p.a."]):
+                    #     #     try:
+                    #     #         carry = float(row["Carry p.a."])
+                    #     #     except Exception:
+                    #     #         carry = 0.0
+                    #     days_to_calc = float(l_days_val)
+                    #     adjusted_notional = notional_spot * (1.0 + (carry * (days_to_calc / 365.0)))
+                    #     K_adj = float(strike_val) * (1 + (float(r) * T_years))
+                    #     opt_type_calc = "Call" if opt_code_norm == "C" else "Put"
+                    #     l_entry_val = float(bs_price(adjusted_notional, K_adj, T_years, r, l_vol_val, opt_type_calc))
+                    # except Exception:
+                    #     pass
                 else:
                     st.write(f"No match for leg {i + 1}")
         except Exception as e:
